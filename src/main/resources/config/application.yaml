@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: timeseries-server
+
+powsybl-ws:
+  database:
+    name: timeseries
