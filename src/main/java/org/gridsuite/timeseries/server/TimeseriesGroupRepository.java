@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-package org.gridsuite.timeseries.server.repository;
+package org.gridsuite.timeseries.server;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -16,5 +16,5 @@ import java.util.UUID;
  */
 
 @Repository
-public interface TimeseriesRepository extends JpaRepository<TimeseriesEntity, UUID> {
+public interface TimeseriesGroupRepository extends JpaRepository<TimeseriesGroupEntity, UUID> {
 }

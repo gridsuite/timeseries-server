@@ -10,7 +10,6 @@ import java.util.UUID;
 
 import javax.persistence.*;
 import lombok.*;
-import nonapi.io.github.classgraph.json.Id;
 
 
 /**
@@ -23,10 +22,11 @@ import nonapi.io.github.classgraph.json.Id;
 @Setter
 @Entity
 @Builder
-@Table(name = "timeseries")
+@Table(name = "timeseries_group")
 public class TimeseriesGroupEntity {
 
     @Id
+    @GeneratedValue(strategy  =  GenerationType.AUTO)
     @Column(name = "id")
     private UUID id;
 

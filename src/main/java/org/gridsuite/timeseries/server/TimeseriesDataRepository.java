@@ -25,6 +25,7 @@ import org.springframework.stereotype.Repository;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.powsybl.timeseries.DoubleTimeSeries;
+import com.powsybl.timeseries.RegularTimeSeriesIndex;
 import com.powsybl.timeseries.TimeSeries;
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -51,7 +52,15 @@ public class TimeseriesDataRepository {
     private static final int WRITE_THREADSIZE = 3; // 3 batches => e.g. 300 rows of 300cols
     private static final int READ_THREADSIZE = 300; // 300 db rows, TODO take the number of cols into account
 
-    public void save(UUID uuid, List<TimeSeries> listTimeseries) throws Exception {
+    public void save(UUID uuid, List<TimeSeries> listTimeseries) {
+        try {
+            dosave(uuid, listTimeseries);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void dosave(UUID uuid, List<TimeSeries> listTimeseries) throws Exception {
 
         int colcount = listTimeseries.size();
         int rowcount = listTimeseries.get(0).getMetadata().getIndex().getPointCount();
@@ -134,7 +143,15 @@ public class TimeseriesDataRepository {
         System.out.println();
     }
 
-    public List<TimeSeries> findById(UUID uuid, String time, String col) throws Exception {
+    public List<TimeSeries> findById(UUID uuid, String time, String col) {
+        try {
+            return dofindById(uuid, time, col);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private List<TimeSeries> dofindById(UUID uuid, String time, String col) throws Exception {
 
         long a = System.nanoTime();
         int cnt=-1;
@@ -143,7 +160,6 @@ public class TimeseriesDataRepository {
         try (var connection = datasource.getConnection();
              var ps = connection.prepareStatement(COUNT);) {
             ps.setObject(1, uuid);
-            ps.setInt(2, 1);
             try(var resultSet = ps.executeQuery();) {
                 if (resultSet.next()) {
                     cnt = resultSet.getInt(1);
@@ -172,7 +188,7 @@ public class TimeseriesDataRepository {
                     ps.setInt(3, threadrowend);
                     try (var resultSet = ps.executeQuery();) {
                         while (resultSet.next()) {
-                            threadres.put(resultSet.getTimestamp(1), objectMapper.readValue(resultSet.getString(1), Map.class));
+                            threadres.put(resultSet.getInt(1), objectMapper.readValue(resultSet.getString(2), Map.class));
                         }
                     }
                 }
@@ -213,7 +229,7 @@ public class TimeseriesDataRepository {
         for (Map.Entry<String, List<Double>> entry : data.entrySet()) {
             double[] doubles = entry.getValue().stream().mapToDouble(Double::doubleValue)
                     .toArray();
-            ret.add(TimeSeries.createDouble(entry.getKey(), null, doubles));
+            ret.add(TimeSeries.createDouble(entry.getKey(), new RegularTimeSeriesIndex(0, res.size() - 1, 1), doubles));
         }
        
         return ret;

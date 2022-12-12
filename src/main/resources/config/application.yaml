@@ -5,3 +5,5 @@ spring:
 powsybl-ws:
   database:
     name: timeseries
+
+logging.level.org.gridsuite.timeseries.server: DEBUG

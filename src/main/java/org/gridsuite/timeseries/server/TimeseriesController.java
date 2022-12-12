@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.powsybl.timeseries.TimeSeries;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -43,8 +45,9 @@ public class TimeseriesController {
     @GetMapping(value = "/timeseries-group")
     @Operation(summary = "Get all timeseries groups")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The list of timeseries groups")})
-    public ResponseEntity<List<>> getTimeseriesGroupsList() {
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(timeseriesService.getTimeSeriesGroups());
+    public ResponseEntity<List<TimeseriesGroupEntity>> getTimeseriesGroupsList() {
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
+                .body(timeseriesService.getTimeseriesGroupsList());
     }
 
     @PostMapping(value = "/timeseries-group")
@@ -52,8 +55,8 @@ public class TimeseriesController {
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The timeseries group was successfully created")})
     //TODO better interface with springboot's objectmapper using the timeseries jackson in powsybl ?
     public UUID createTimeseriesGroup(@RequestBody String timeseries) {
-        List<Timeseries> list = Timeseries.parseJson(timeseries);
-        return TimeseriesService.createGroup(list);
+        List<TimeSeries> list = TimeSeries.parseJson(timeseries);
+        return timeseriesService.createTimeseriesGroup(list);
     }
 
     @PutMapping(value = "/timeseries-group/{uuid}")
@@ -61,18 +64,18 @@ public class TimeseriesController {
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The timeseries group was successfully updated")})
     //TODO better interface with springboot's objectmapper using the timeseries jackson in powsybl ?
     public void updateTimeseriesGroup(@PathVariable UUID uuid, @RequestBody String timeseries) {
-        List<Timeseries> list = Timeseries.parseJson(timeseries);
-        return TimeseriesService.updateGroup(uuid, list);
+        List<TimeSeries> list = TimeSeries.parseJson(timeseries);
+        timeseriesService.updateTimeseriesGroup(uuid, list);
     }
 
     @GetMapping(value = "/timeseries-group/{uuid}")
     @Operation(summary = "Get data of a timeseries groups")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The list of timeseries groups")})
-    public ResponseEntity<List<Timeseries>> getTimeseriesGroup(
+    public ResponseEntity<List<TimeSeries>> getTimeseriesGroup(
         @PathVariable UUID uuid,
         //TODO more kinds of filters
-        @RequestParam String time,
-        @RequestParam String col,
+        @RequestParam( required = false) String time,
+        @RequestParam( required = false) String col
     ) {
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(timeseriesService.getTimeseriesGroup(uuid, time, col));
     }

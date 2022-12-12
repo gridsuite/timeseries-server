@@ -4,9 +4,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-package org.gridsuite.study.server.service;
+package org.gridsuite.timeseries.server;
+
+import java.util.List;
+import java.util.UUID;
+
+import javax.transaction.Transactional;
 
 import org.springframework.stereotype.Service;
+
+import com.powsybl.timeseries.TimeSeries;
 
 /**
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
@@ -14,25 +21,35 @@ import org.springframework.stereotype.Service;
 @Service
 public class TimeseriesService {
 
-    private final TimeseriesRepository timeseriesRepository;
+    private final TimeseriesGroupRepository timeseriesGroupRepository;
     private final TimeseriesDataRepository timeseriesDataRepository;
 
+    public List<TimeseriesGroupEntity> getTimeseriesGroupsList() {
+        return timeseriesGroupRepository.findAll();
+    }
+
+    public TimeseriesService(TimeseriesGroupRepository timeseriesGroupRepository,
+            TimeseriesDataRepository timeseriesDataRepository) {
+        this.timeseriesGroupRepository = timeseriesGroupRepository;
+        this.timeseriesDataRepository = timeseriesDataRepository;
+    }
+
     @Transactional
-    public UUID createTimeseriesGroup(List<Timeseries> timeseries) {
-        TimeseriesGroupEntity tsGroup = TimeseriesRepository.save(new TimeseriesGroupEntity());
-        timeseriesDataRepository.save(uuid, timeseries);
+    public UUID createTimeseriesGroup(List<TimeSeries> timeseries) {
+        TimeseriesGroupEntity tsGroup = timeseriesGroupRepository.save(new TimeseriesGroupEntity());
+        timeseriesDataRepository.save(tsGroup.getId(), timeseries);
         return tsGroup.getId();
     }
 
     @Transactional
-    public void updateTimeseriesGroup(UUID uuid, List<Timeseries> timeseries) {
-        TimeseriesGroupEntity tsGroup = TimeseriesRepository.findById(uuid);
+    public void updateTimeseriesGroup(UUID uuid, List<TimeSeries> timeseries) {
+        TimeseriesGroupEntity tsGroup = timeseriesGroupRepository.findById(uuid).orElseThrow();
         timeseriesDataRepository.save(uuid, timeseries);
     }
 
     @Transactional
-    public void getTimeseriesGroup(UUID uuid, List<Timeseries> timeseries) {
-        List<Timeseries> tsData = TimeseriesDataRepository.findById(uuid);
+    public List<TimeSeries> getTimeseriesGroup(UUID uuid, String time, String col) {
+        List<TimeSeries> tsData = timeseriesDataRepository.findById(uuid, time, col);
         return tsData;
     }
 
