@@ -16,6 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,9 +68,9 @@ public class TimeseriesDataRepository {
         long a = System.nanoTime();
 
         List<double[]> data = new ArrayList<>();
-        for (Timeseries ts: listTimeseries) {
+        for (int i=0; i<listTimeseries.size(); i++) {
             //TODO other types
-            data = ((DoubleTimeSeries) dts).toArray();
+            data.add(((DoubleTimeSeries) listTimeseries.get(i)).toArray());
         }
 
         for (int i=0; i<threadcount; i++) {
@@ -93,8 +94,11 @@ public class TimeseriesDataRepository {
                             tsdata.put(tsName, tsData);
                         }
                         ps.setObject(1, uuid);
-                        ps.setObject(1, Timestamp.from(listTimeseries.get(0).getMetadata().getIndex().getInstantAt(row));
-                        ps.setObject(5, objectMapper.writeValueAsString(tsdata), java.sql.Types.OTHER);
+                        // TODO instants/durations ?
+//                        ps.setObject(1,
+//                                Timestamp.from(listTimeseries.get(0).getMetadata().getIndex().getInstantAt(row)));
+                        ps.setInt(2, l);
+                        ps.setObject(3, objectMapper.writeValueAsString(tsdata), java.sql.Types.OTHER);
                         ps.addBatch();
 
                         if (l==threadrowcount-1 || (l % batchrow) == batchrow-1) {
@@ -122,7 +126,7 @@ public class TimeseriesDataRepository {
                 tasks[i].get();
             }
         } else {
-            Logger.debug("Starting inserts in http thread", size);
+            LOGGER.debug("Starting inserts in http thread");
             callables[0].call();
         }
         long b = System.nanoTime();
@@ -130,7 +134,7 @@ public class TimeseriesDataRepository {
         System.out.println();
     }
 
-    public List<Timeseries findById(UUID uuid, String time, String col) throws Exception {
+    public List<TimeSeries> findById(UUID uuid, String time, String col) throws Exception {
 
         long a = System.nanoTime();
         int cnt=-1;
@@ -138,7 +142,7 @@ public class TimeseriesDataRepository {
         //TODO maintain an estimated col count as metadata instead of just guessing when requesting all cols ?
         try (var connection = datasource.getConnection();
              var ps = connection.prepareStatement(COUNT);) {
-            ps.setString(1, uuid);
+            ps.setObject(1, uuid);
             ps.setInt(2, 1);
             try(var resultSet = ps.executeQuery();) {
                 if (resultSet.next()) {
@@ -153,8 +157,8 @@ public class TimeseriesDataRepository {
         Callable[] callables = new Callable[threadcount];
         for (int i=0; i<threadcount; i++) {
             int i_copy = i;
-            long threadrowstart=i_copy*READ_THREADSIZE;
-            long threadrowend=(i_copy+1)*READ_THREADSIZE;
+            int threadrowstart = i_copy * READ_THREADSIZE;
+            int threadrowend = (i_copy + 1) * READ_THREADSIZE;
             callables[i] = () -> {
                 Map<Object, Object> threadres = new LinkedHashMap<>();
                 try (var connection = datasource.getConnection();
@@ -163,7 +167,7 @@ public class TimeseriesDataRepository {
                 //     var ps = connection.prepareStatement("select  sim_time,  from simulations_10 where group_id=? and and sim_time >= ? and sim_time < ?;");
                      var ps = connection.prepareStatement(SELECTALL);
                 ) {
-                    ps.setString(1, uuid);
+                    ps.setObject(1, uuid);
                     ps.setInt(2, threadrowstart);
                     ps.setInt(3, threadrowend);
                     try (var resultSet = ps.executeQuery();) {
@@ -190,13 +194,27 @@ public class TimeseriesDataRepository {
                 res.putAll((Map) tasks[i].get());
             }
         } else {
-            LOGGER.debug("Starting inserts in http thread", size);
+            LOGGER.debug("Starting inserts in http thread");
             res = (Map) callables[0].call();
         }
         long c = System.nanoTime();
         LOGGER.debug("read {} took {}ms (count {}ms, {} queries {}ms)", uuid, ((c-a)/1000000), ((b-a)/1000000), threadcount, ((c-b)/1000000));
 
-        List<Timeseries> ret = new ArrayList<>();
+        Map<String, List<Double>> data = new HashMap<>();
+        for (Map.Entry<Object, Object> entry : res.entrySet()) {
+            Map<Object, Object> dict = (Map) entry.getValue();
+            for (Map.Entry<Object, Object> entryPoint : dict.entrySet()) {
+                String tsname = (String) entryPoint.getKey();
+                double val = (double) entryPoint.getValue();
+                data.computeIfAbsent(tsname, (_ignored) -> new ArrayList<>()).add(val);
+            }
+        }
+        List<TimeSeries> ret = new ArrayList<>();
+        for (Map.Entry<String, List<Double>> entry : data.entrySet()) {
+            double[] doubles = entry.getValue().stream().mapToDouble(Double::doubleValue)
+                    .toArray();
+            ret.add(TimeSeries.createDouble(entry.getKey(), null, doubles));
+        }
        
         return ret;
     }
