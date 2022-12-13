@@ -36,20 +36,17 @@ public class TimeseriesService {
 
     @Transactional
     public UUID createTimeseriesGroup(List<TimeSeries> timeseries) {
+        // TODO assert index is the same
+        // TODO save index
         TimeseriesGroupEntity tsGroup = timeseriesGroupRepository.save(new TimeseriesGroupEntity());
         timeseriesDataRepository.save(tsGroup.getId(), timeseries);
         return tsGroup.getId();
     }
 
     @Transactional
-    public void updateTimeseriesGroup(UUID uuid, List<TimeSeries> timeseries) {
-        TimeseriesGroupEntity tsGroup = timeseriesGroupRepository.findById(uuid).orElseThrow();
-        timeseriesDataRepository.save(uuid, timeseries);
-    }
-
-    @Transactional
-    public List<TimeSeries> getTimeseriesGroup(UUID uuid, String time, String col) {
-        List<TimeSeries> tsData = timeseriesDataRepository.findById(uuid, time, col);
+    public List<TimeSeries> getTimeseriesGroup(UUID uuid, boolean tryToCompress, String time, String col) {
+        // TODO return saved index
+        List<TimeSeries> tsData = timeseriesDataRepository.findById(uuid, tryToCompress, time, col);
         return tsData;
     }
 

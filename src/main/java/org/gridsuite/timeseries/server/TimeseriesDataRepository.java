@@ -6,7 +6,6 @@
  */
 package org.gridsuite.timeseries.server;
 
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -16,7 +15,6 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,9 +22,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.powsybl.timeseries.DoubleDataChunk;
 import com.powsybl.timeseries.DoubleTimeSeries;
 import com.powsybl.timeseries.RegularTimeSeriesIndex;
+import com.powsybl.timeseries.StoredDoubleTimeSeries;
 import com.powsybl.timeseries.TimeSeries;
+import com.powsybl.timeseries.TimeSeriesDataType;
+import com.powsybl.timeseries.TimeSeriesMetadata;
+import com.powsybl.timeseries.UncompressedDoubleDataChunk;
 import com.zaxxer.hikari.HikariDataSource;
 
 /**
@@ -48,6 +51,8 @@ public class TimeseriesDataRepository {
     @Autowired
     private HikariDataSource datasource;
 
+    // TODO tune these parameters for performance
+    // TODO make these parameters in application.yaml
     private static final int WRITE_BATCHSIZE = 30000; 
     private static final int WRITE_THREADSIZE = 3; // 3 batches => e.g. 300 rows of 300cols
     private static final int READ_THREADSIZE = 300; // 300 db rows, TODO take the number of cols into account
@@ -60,6 +65,7 @@ public class TimeseriesDataRepository {
         }
     }
 
+    // TODO untangle multithreaded scatter/gather from actual work
     private void dosave(UUID uuid, List<TimeSeries> listTimeseries) throws Exception {
 
         int colcount = listTimeseries.size();
@@ -76,9 +82,14 @@ public class TimeseriesDataRepository {
         LOGGER.debug("insert {} in batch of {} rows ({} doubles for each batch), numbatch={}, numthreads={}, threadbatches={}", uuid, batchrow, batchrow*colcount, batchcount, threadcount, threadbatches);
         long a = System.nanoTime();
 
+        // TODO here we transpose, which means it's impossible to stream
+        // data from the client to the database, the server has to buffer in memory.
+        // try to change the API to allow streaming.
+        // TODO avoid copying the data (timeseries toArray())?
         List<double[]> data = new ArrayList<>();
         for (int i=0; i<listTimeseries.size(); i++) {
             //TODO other types
+            // TODO timeseries raw type
             data.add(((DoubleTimeSeries) listTimeseries.get(i)).toArray());
         }
 
@@ -140,18 +151,18 @@ public class TimeseriesDataRepository {
         }
         long b = System.nanoTime();
         LOGGER.debug("inserted {} took: {}ms", uuid, ((b-a)/1000000));
-        System.out.println();
     }
 
-    public List<TimeSeries> findById(UUID uuid, String time, String col) {
+    public List<TimeSeries> findById(UUID uuid, boolean tryToCompress, String time, String col) {
         try {
-            return dofindById(uuid, time, col);
+            return dofindById(uuid, tryToCompress, time, col);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    private List<TimeSeries> dofindById(UUID uuid, String time, String col) throws Exception {
+    // TODO untangle multithreaded scatter/gather from actual work
+    private List<TimeSeries> dofindById(UUID uuid, boolean tryToCompress, String time, String col) throws Exception {
 
         long a = System.nanoTime();
         int cnt=-1;
@@ -167,9 +178,7 @@ public class TimeseriesDataRepository {
             }
         }
         long b = System.nanoTime();
-        String dbcounttime = ((b-a)/1000000) + "ms";
         int threadcount = (cnt+READ_THREADSIZE-1)/READ_THREADSIZE;
-        System.out.println("Temporal read cnt=" + cnt + ", threadscnt="+threadcount);
         Callable[] callables = new Callable[threadcount];
         for (int i=0; i<threadcount; i++) {
             int i_copy = i;
@@ -184,10 +193,14 @@ public class TimeseriesDataRepository {
                      var ps = connection.prepareStatement(SELECTALL);
                 ) {
                     ps.setObject(1, uuid);
+                    // TODO instants/durations ?
                     ps.setInt(2, threadrowstart);
                     ps.setInt(3, threadrowend);
                     try (var resultSet = ps.executeQuery();) {
                         while (resultSet.next()) {
+                            // TODO avoid copying the data by writing directly from each thread to the final
+                            // structure ?
+                            // TODO instants/durations ?
                             threadres.put(resultSet.getInt(1), objectMapper.readValue(resultSet.getString(2), Map.class));
                         }
                     }
@@ -207,6 +220,8 @@ public class TimeseriesDataRepository {
             }
             res = new LinkedHashMap<>();
             for (int i=0; i<threadcount; i++) {
+                // TODO avoid copying the data by writing directly from each thread to the final
+                // structure ?
                 res.putAll((Map) tasks[i].get());
             }
         } else {
@@ -214,13 +229,18 @@ public class TimeseriesDataRepository {
             res = (Map) callables[0].call();
         }
         long c = System.nanoTime();
-        LOGGER.debug("read {} took {}ms (count {}ms, {} queries {}ms)", uuid, ((c-a)/1000000), ((b-a)/1000000), threadcount, ((c-b)/1000000));
+        LOGGER.debug("read {} took {}ms (count {}ms, {} queries in {} threads {}ms)", uuid, ((c - a) / 1000000),
+                ((b - a) / 1000000), cnt, threadcount, ((c - b) / 1000000));
 
+        // TODO same as save, avoid the transpose to allow stream from database to
+        // clients ?
+        // TODO avoid this extra copy to an intermediate transposed map
         Map<String, List<Double>> data = new HashMap<>();
         for (Map.Entry<Object, Object> entry : res.entrySet()) {
             Map<Object, Object> dict = (Map) entry.getValue();
             for (Map.Entry<Object, Object> entryPoint : dict.entrySet()) {
                 String tsname = (String) entryPoint.getKey();
+                // TODO more types
                 double val = (double) entryPoint.getValue();
                 data.computeIfAbsent(tsname, (_ignored) -> new ArrayList<>()).add(val);
             }
@@ -229,7 +249,19 @@ public class TimeseriesDataRepository {
         for (Map.Entry<String, List<Double>> entry : data.entrySet()) {
             double[] doubles = entry.getValue().stream().mapToDouble(Double::doubleValue)
                     .toArray();
-            ret.add(TimeSeries.createDouble(entry.getKey(), new RegularTimeSeriesIndex(0, res.size() - 1, 1), doubles));
+
+            // TODO should be in the timeseries API ?
+            DoubleDataChunk ddc = new UncompressedDoubleDataChunk(0, doubles);
+            // TODO get compress mode from the metadata sent by the client
+            if (tryToCompress) {
+                ddc = ddc.tryToCompress();
+            }
+            // TODO more types
+            // TODO index from client
+            TimeSeries timeseries = new StoredDoubleTimeSeries(
+                    new TimeSeriesMetadata(entry.getKey(), TimeSeriesDataType.DOUBLE,
+                    new RegularTimeSeriesIndex(0, res.size() - 1, 1)), List.of(ddc));
+            ret.add(timeseries);
         }
        
         return ret;
