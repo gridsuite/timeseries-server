@@ -8,9 +8,11 @@ package org.gridsuite.timeseries.server;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.CALLS_REAL_METHODS;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.UnsupportedEncodingException;
 import java.util.List;
@@ -110,9 +112,9 @@ public class TimeSeriesIT {
 
         RegularTimeSeriesIndex regularIndex = new RegularTimeSeriesIndex(0, 2, 1);
         List<TimeSeries> tsRef1 = List.of(
-           TimeSeries.createDouble("first", regularIndex, 2d,3d,4d),
-           // this one has tags, little more verbose
-           new StoredDoubleTimeSeries(new TimeSeriesMetadata("second", TimeSeriesDataType.DOUBLE, Map.of("unit", "kV"), regularIndex), List.of(new UncompressedDoubleDataChunk(0, new double[] {5d, 6d, 7d})))
+            TimeSeries.createDouble("first", regularIndex, 2d, 3d, 4d),
+            // this one has tags, little more verbose
+            new StoredDoubleTimeSeries(new TimeSeriesMetadata("second", TimeSeriesDataType.DOUBLE, Map.of("unit", "kV"), regularIndex), List.of(new UncompressedDoubleDataChunk(0, new double[] {5d, 6d, 7d})))
         );
 
         String createdUuid1 = testCreateGetTs(tsRef1);
@@ -123,7 +125,7 @@ public class TimeSeriesIT {
         ).andReturn();
         System.out.println(res.getResponse().getContentAsString());
 
-        IrregularTimeSeriesIndex irregularIndex = new IrregularTimeSeriesIndex(new long[] { 0, 1, 2 });
+        IrregularTimeSeriesIndex irregularIndex = new IrregularTimeSeriesIndex(new long[] {0, 1, 2 });
         List<TimeSeries> tsRef2 = List.of(
             TimeSeries.createDouble("first", regularIndex, 2d, 3d, 4d),
             TimeSeries.createDouble("second", regularIndex, 5d, 6d, 7d)
@@ -148,7 +150,6 @@ public class TimeSeriesIT {
                 content().json(getAllRef(Map.of(createdUuid2, tsRef2)))
         );
 
-
         mockMvc.perform(delete("/v1/timeseries-group/{uuid}", createdUuid2)).andExpect(status().isOk());
 
         mockMvc.perform(get("/v1/timeseries-group")).andExpectAll(
@@ -167,10 +168,10 @@ public class TimeSeriesIT {
                 status().isOk(),
                 content().json(getAllRef(Map.of(createdUuid3, tsRef3)))
         );
-        
+
         List<TimeSeries> tsRef4 = List.of(
-           TimeSeries.createDouble("first", regularIndex, 2d,3d,4d),
-           TimeSeries.createDouble("second", irregularIndex, 5d,6d,7d)
+            TimeSeries.createDouble("first", regularIndex, 2d, 3d, 4d),
+            TimeSeries.createDouble("second", irregularIndex, 5d, 6d, 7d)
         );
         mockMvc.perform(
             post("/v1/timeseries-group")

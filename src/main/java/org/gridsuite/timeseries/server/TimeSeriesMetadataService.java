@@ -1,7 +1,5 @@
 package org.gridsuite.timeseries.server;
 
-import static org.junit.jupiter.api.DynamicTest.stream;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -13,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.powsybl.commons.json.JsonUtil;
 import com.powsybl.timeseries.InfiniteTimeSeriesIndex;
@@ -37,14 +34,14 @@ public class TimeSeriesMetadataService {
         return JsonUtil.parseJson(indexJson, parser -> {
             // TODO lifted from TimeSeriesMetadata.parseFieldName
             switch (indexType) {
-            case RegularTimeSeriesIndex.TYPE:
-                return RegularTimeSeriesIndex.parseJson(parser);
-            case IrregularTimeSeriesIndex.TYPE:
-                return IrregularTimeSeriesIndex.parseJson(parser);
-            case InfiniteTimeSeriesIndex.TYPE:
-                return InfiniteTimeSeriesIndex.parseJson(parser);
-            default:
-                throw new RuntimeException("unknown index type");
+                case RegularTimeSeriesIndex.TYPE:
+                    return RegularTimeSeriesIndex.parseJson(parser);
+                case IrregularTimeSeriesIndex.TYPE:
+                    return IrregularTimeSeriesIndex.parseJson(parser);
+                case InfiniteTimeSeriesIndex.TYPE:
+                    return InfiniteTimeSeriesIndex.parseJson(parser);
+                default:
+                    throw new RuntimeException("unknown index type");
             }
         });
     }
@@ -96,7 +93,7 @@ public class TimeSeriesMetadataService {
         Map<String, Object> individualMetadata = (Map) individualMetadatas.get(name);
         Map<String, String> tags = (Map) ((List) individualMetadata.get("tags")).stream()
                 .collect(Collectors.toMap(map -> ((Map) map).keySet().iterator().next(),
-                        map -> ((Map) map).values().iterator().next()));// TODO why using a list of single valued objects here...
+                    map -> ((Map) map).values().iterator().next())); // TODO why using a list of single valued objects here...
         return new TimeSeriesMetadata(name,
                 TimeSeriesDataType.valueOf((String) individualMetadata.get("dataType")),
                 tags, index);

@@ -6,8 +6,6 @@
  */
 package org.gridsuite.timeseries.server;
 
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import javax.persistence.Column;
@@ -15,17 +13,9 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
-import com.powsybl.timeseries.TimeSeriesDataType;
-import com.powsybl.timeseries.TimeSeriesIndex;
-import com.powsybl.timeseries.TimeSeriesMetadata;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 
@@ -52,7 +42,7 @@ public class TimeseriesGroupEntity {
     }
 
     @Id
-    @GeneratedValue(strategy  =  GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "id")
     private UUID id;
 

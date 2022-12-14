@@ -25,14 +25,11 @@ import org.springframework.stereotype.Repository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.powsybl.timeseries.DoubleDataChunk;
 import com.powsybl.timeseries.DoubleTimeSeries;
-import com.powsybl.timeseries.RegularTimeSeriesIndex;
 import com.powsybl.timeseries.StoredDoubleTimeSeries;
 import com.powsybl.timeseries.StringDataChunk;
 import com.powsybl.timeseries.StringTimeSeries;
 import com.powsybl.timeseries.TimeSeries;
-import com.powsybl.timeseries.TimeSeriesDataType;
 import com.powsybl.timeseries.TimeSeriesIndex;
-import com.powsybl.timeseries.TimeSeriesMetadata;
 import com.powsybl.timeseries.UncompressedDoubleDataChunk;
 import com.powsybl.timeseries.UncompressedStringDataChunk;
 import com.zaxxer.hikari.HikariDataSource;
@@ -62,7 +59,7 @@ public class TimeseriesDataRepository {
 
     // TODO tune these parameters for performance
     // TODO make these parameters in application.yaml
-    private static final int WRITE_BATCHSIZE = 30000; 
+    private static final int WRITE_BATCHSIZE = 30000;
     private static final int WRITE_THREADSIZE = 3; // 3 batches => e.g. 300 rows of 300cols
     private static final int READ_THREADSIZE = 300; // 300 db rows, TODO take the number of cols into account
 
@@ -80,15 +77,17 @@ public class TimeseriesDataRepository {
         int colcount = listTimeseries.size();
         int rowcount = listTimeseries.get(0).getMetadata().getIndex().getPointCount();
 
-        int batchrow = (WRITE_BATCHSIZE + colcount-1) / colcount;
-        int batchcount = (rowcount + batchrow -1)/batchrow;
+        int batchrow = (WRITE_BATCHSIZE + colcount - 1) / colcount;
+        int batchcount = (rowcount + batchrow - 1) / batchrow;
 
-        int threadcount = (batchcount+WRITE_THREADSIZE-1) / WRITE_THREADSIZE;
-        int threadbatches = (batchcount+threadcount-1) / threadcount;
+        int threadcount = (batchcount + WRITE_THREADSIZE - 1) / WRITE_THREADSIZE;
+        int threadbatches = (batchcount + threadcount - 1) / threadcount;
 
         Callable[] callables = new Callable[threadcount];
 
-        LOGGER.debug("insert {} in batch of {} rows ({} doubles for each batch), numbatch={}, numthreads={}, threadbatches={}", uuid, batchrow, batchrow*colcount, batchcount, threadcount, threadbatches);
+        LOGGER.debug(
+                "insert {} in batch of {} rows ({} doubles for each batch), numbatch={}, numthreads={}, threadbatches={}",
+                uuid, batchrow, batchrow * colcount, batchcount, threadcount, threadbatches);
         long a = System.nanoTime();
 
         // TODO here we transpose, which means it's impossible to stream
@@ -114,21 +113,22 @@ public class TimeseriesDataRepository {
             throw new RuntimeException("Unsupported save of timeseries type" + listTimeseries.get(0).getClass());
         }
 
-        for (int i=0; i<threadcount; i++) {
-            int i_copy = i;
+        for (int i = 0; i < threadcount; i++) {
+            int iCopy = i;
             callables[i] = () -> {
                 try (var conn = datasource.getConnection();
                      var ps = conn.prepareStatement(INSERT);
                 ) {
                     conn.setAutoCommit(false);
 
-                    int threadrowstart = i_copy*threadbatches*batchrow;
-                    int remainingrows = rowcount%(threadbatches*batchrow);
-                    int threadrowcount = i_copy == threadcount-1 && remainingrows > 0 ? remainingrows : threadbatches*batchrow;
-                    for (int l=0; l<threadrowcount; l++) {
+                    int threadrowstart = iCopy * threadbatches * batchrow;
+                    int remainingrows = rowcount % (threadbatches * batchrow);
+                    int threadrowcount = iCopy == threadcount - 1 && remainingrows > 0 ? remainingrows
+                            : threadbatches * batchrow;
+                    for (int l = 0; l < threadrowcount; l++) {
                         int row = threadrowstart + l;
                         Map<String, Object> tsdata = new HashMap<>();
-                        for (int m = 0; m<colcount; m++) {
+                        for (int m = 0; m < colcount; m++) {
                             int col = m;
                             String tsName = listTimeseries.get(col).getMetadata().getName();
                             Object tsData = stringOrDoubledataGetter.apply(col, row);
@@ -142,7 +142,7 @@ public class TimeseriesDataRepository {
                         ps.setObject(3, objectMapper.writeValueAsString(tsdata), java.sql.Types.OTHER);
                         ps.addBatch();
 
-                        if (l==threadrowcount-1 || (l % batchrow) == batchrow-1) {
+                        if (l == threadrowcount - 1 || (l % batchrow) == batchrow - 1) {
                             ps.executeBatch();
                         }
                     }
@@ -155,15 +155,15 @@ public class TimeseriesDataRepository {
             };
         }
         //TODO improve multithread impl ? use better APIs than forkjoinpool ? don't create the pool for each request ?
-        if (threadcount>1) {
-            ForkJoinTask tasks[] = new ForkJoinTask[threadcount];
+        if (threadcount > 1) {
+            ForkJoinTask[] tasks = new ForkJoinTask[threadcount];
             int size = datasource.getMaximumPoolSize();
             LOGGER.debug("Starting inserts in forkjoinpool size={}", size);
             ForkJoinPool pool = new ForkJoinPool(size);
-            for (int i=0; i<threadcount; i++) {
+            for (int i = 0; i < threadcount; i++) {
                 tasks[i] = pool.submit(callables[i]);
             }
-            for (int i=0; i<threadcount; i++) {
+            for (int i = 0; i < threadcount; i++) {
                 tasks[i].get();
             }
         } else {
@@ -171,7 +171,7 @@ public class TimeseriesDataRepository {
             callables[0].call();
         }
         long b = System.nanoTime();
-        LOGGER.debug("inserted {} took: {}ms", uuid, ((b-a)/1000000));
+        LOGGER.debug("inserted {} took: {}ms", uuid, (b - a) / 1000000);
     }
 
     public List<TimeSeries> findById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, String col) {
@@ -185,25 +185,25 @@ public class TimeseriesDataRepository {
     // TODO untangle multithreaded scatter/gather from actual work
     private List<TimeSeries> dofindById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, String col) throws Exception {
         long a = System.nanoTime();
-        int cnt=-1;
+        int cnt = -1;
         //TODO maintain this as a separate metadata instead of select count(*) when requesting all rows ?
         //TODO maintain an estimated col count as metadata instead of just guessing when requesting all cols ?
         try (var connection = datasource.getConnection();
              var ps = connection.prepareStatement(COUNT);) {
             ps.setObject(1, uuid);
-            try(var resultSet = ps.executeQuery();) {
+            try (var resultSet = ps.executeQuery();) {
                 if (resultSet.next()) {
                     cnt = resultSet.getInt(1);
                 }
             }
         }
         long b = System.nanoTime();
-        int threadcount = (cnt+READ_THREADSIZE-1)/READ_THREADSIZE;
+        int threadcount = (cnt + READ_THREADSIZE - 1) / READ_THREADSIZE;
         Callable[] callables = new Callable[threadcount];
-        for (int i=0; i<threadcount; i++) {
-            int i_copy = i;
-            int threadrowstart = i_copy * READ_THREADSIZE;
-            int threadrowend = (i_copy + 1) * READ_THREADSIZE;
+        for (int i = 0; i < threadcount; i++) {
+            int iCopy = i;
+            int threadrowstart = iCopy * READ_THREADSIZE;
+            int threadrowend = (iCopy + 1) * READ_THREADSIZE;
             callables[i] = () -> {
                 Map<Object, Object> threadres = new LinkedHashMap<>();
                 try (var connection = datasource.getConnection();
@@ -230,16 +230,16 @@ public class TimeseriesDataRepository {
         }
 
         Map<Object, Object> res;
-        if (threadcount>1) {
-            ForkJoinTask tasks[] = new ForkJoinTask[threadcount];
+        if (threadcount > 1) {
+            ForkJoinTask[] tasks = new ForkJoinTask[threadcount];
             int size = datasource.getMaximumPoolSize();
             LOGGER.debug("Starting inserts in forkjoinpool size={}", size);
             ForkJoinPool pool = new ForkJoinPool(size);
-            for (int i=0; i<threadcount; i++) {
+            for (int i = 0; i < threadcount; i++) {
                 tasks[i] = pool.submit(callables[i]);
             }
             res = new LinkedHashMap<>();
-            for (int i=0; i<threadcount; i++) {
+            for (int i = 0; i < threadcount; i++) {
                 // TODO avoid copying the data by writing directly from each thread to the final
                 // structure ?
                 res.putAll((Map) tasks[i].get());
@@ -249,8 +249,8 @@ public class TimeseriesDataRepository {
             res = (Map) callables[0].call();
         }
         long c = System.nanoTime();
-        LOGGER.debug("read {} took {}ms (count {}ms, {} queries in {} threads {}ms)", uuid, ((c - a) / 1000000),
-                ((b - a) / 1000000), cnt, threadcount, ((c - b) / 1000000));
+        LOGGER.debug("read {} took {}ms (count {}ms, {} queries in {} threads {}ms)", uuid, (c - a) / 1000000,
+                (b - a) / 1000000, cnt, threadcount, (c - b) / 1000000);
 
         // TODO same as save, avoid the transpose to allow stream from database to
         // clients ?
@@ -262,7 +262,7 @@ public class TimeseriesDataRepository {
                 String tsname = (String) entryPoint.getKey();
                 // TODO more types
                 Object val = entryPoint.getValue();
-                data.computeIfAbsent(tsname, (_ignored) -> new ArrayList<>()).add(val);
+                data.computeIfAbsent(tsname, _ignored -> new ArrayList<>()).add(val);
             }
         }
         List<TimeSeries> ret = new ArrayList<>();
@@ -271,7 +271,6 @@ public class TimeseriesDataRepository {
             if (entry.getValue().get(0) instanceof Double) {
                 double[] doubles = entry.getValue().stream().map(Double.class::cast).mapToDouble(Double::doubleValue)
                         .toArray();
-
 
                 // TODO should be in the timeseries API ?
                 DoubleDataChunk ddc = new UncompressedDoubleDataChunk(0, doubles);
@@ -300,7 +299,6 @@ public class TimeseriesDataRepository {
                 throw new RuntimeException("Unsupported read of timeseries type" + entry.getValue().get(0).getClass());
             }
         }
-       
         return ret;
     }
 

@@ -6,7 +6,6 @@
  */
 package org.gridsuite.timeseries.server;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -18,16 +17,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.powsybl.commons.json.JsonUtil;
-import com.powsybl.timeseries.InfiniteTimeSeriesIndex;
-import com.powsybl.timeseries.IrregularTimeSeriesIndex;
-import com.powsybl.timeseries.RegularTimeSeriesIndex;
 import com.powsybl.timeseries.TimeSeries;
 import com.powsybl.timeseries.TimeSeriesIndex;
-import com.powsybl.timeseries.TimeSeriesMetadata;
 
 /**
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
@@ -74,7 +66,6 @@ public class TimeseriesService {
         }
     }
 
-
     @Transactional
     public UUID createTimeseriesGroup(List<TimeSeries> timeseries) {
         synchronizeIndex(timeseries);
@@ -89,7 +80,6 @@ public class TimeseriesService {
         timeseriesDataRepository.save(tsGroup.getId(), timeseries);
         return tsGroup.getId();
     }
-
 
     @Transactional
     public List<TimeSeries> getTimeseriesGroup(UUID uuid, boolean tryToCompress, String time, String col) {
