@@ -12,6 +12,7 @@
     </changeSet>
     <changeSet author="jon schuhmacher" id="1671009514035-1">
         <!-- TODO foreign key group data to group -->
+        <!-- TODO primary key with index -->
         <createTable tableName="timeseries_group_data">
             <column name="group_id" type="UUID"/>
             <column name="time" type="INT"/> <!-- TODO instants/duration -->
