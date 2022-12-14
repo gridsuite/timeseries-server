@@ -8,6 +8,7 @@ package org.gridsuite.timeseries.server;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -33,12 +34,13 @@ import com.powsybl.timeseries.RegularTimeSeriesIndex;
 import com.powsybl.timeseries.StoredDoubleTimeSeries;
 import com.powsybl.timeseries.StringTimeSeries;
 import com.powsybl.timeseries.TimeSeries;
+import com.powsybl.timeseries.TimeSeriesDataType;
+import com.powsybl.timeseries.TimeSeriesMetadata;
+import com.powsybl.timeseries.UncompressedDoubleDataChunk;
 
 /**
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
  *
- *         adapted from
- *         https://www.baeldung.com/spring-boot-testcontainers-integration-test
  */
 
 @RunWith(SpringRunner.class)
@@ -63,19 +65,23 @@ public class TimeSeriesIT {
 
     // TODO compare more than just the data
     // TODO more types
-    private void assertTimeseriesEquals(List<TimeSeries> tsRef, String actual) {
-        List<TimeSeries> tsGet = TimeSeries.parseJson(actual);
+    private void assertTimeseriesEquals(List<TimeSeries> tsRefs, String actual) {
+        List<TimeSeries> tsGets = TimeSeries.parseJson(actual);
 
-        assertEquals(tsRef.size(), tsGet.size());
-        if (tsRef.get(0) instanceof StoredDoubleTimeSeries) {
-            for (int i = 0; i < tsRef.size(); i++) {
-                assertArrayEquals(((StoredDoubleTimeSeries) tsRef.get(i)).toArray(),
-                        ((StoredDoubleTimeSeries) tsGet.get(i)).toArray(), 0);
+        assertEquals(tsRefs.size(), tsGets.size());
+        if (tsRefs.get(0) instanceof StoredDoubleTimeSeries) {
+            for (int i = 0; i < tsRefs.size(); i++) {
+                StoredDoubleTimeSeries tsRef = (StoredDoubleTimeSeries) tsRefs.get(i);
+                StoredDoubleTimeSeries tsGet = (StoredDoubleTimeSeries) tsGets.get(i);
+                assertArrayEquals(tsRef.toArray(), tsGet.toArray(), 0);
+                assertEquals(tsRef.getMetadata(), tsGet.getMetadata());
             }
-        } else if (tsRef.get(0) instanceof StringTimeSeries) {
-            for (int i = 0; i < tsRef.size(); i++) {
-                assertArrayEquals(((StringTimeSeries) tsRef.get(i)).toArray(),
-                        ((StringTimeSeries) tsGet.get(i)).toArray());
+        } else if (tsRefs.get(0) instanceof StringTimeSeries) {
+            for (int i = 0; i < tsRefs.size(); i++) {
+                StringTimeSeries tsRef = (StringTimeSeries) tsRefs.get(i);
+                StringTimeSeries tsGet = (StringTimeSeries) tsGets.get(i);
+                assertArrayEquals(tsRef.toArray(), tsGet.toArray());
+                assertEquals(tsRef.getMetadata(), tsGet.getMetadata());
             }
         }
     }
@@ -105,15 +111,17 @@ public class TimeSeriesIT {
         RegularTimeSeriesIndex regularIndex = new RegularTimeSeriesIndex(0, 2, 1);
         List<TimeSeries> tsRef1 = List.of(
            TimeSeries.createDouble("first", regularIndex, 2d,3d,4d),
-           TimeSeries.createDouble("second", regularIndex, 5d,6d,7d)
+           // this one has tags, little more verbose
+           new StoredDoubleTimeSeries(new TimeSeriesMetadata("second", TimeSeriesDataType.DOUBLE, Map.of("unit", "kV"), regularIndex), List.of(new UncompressedDoubleDataChunk(0, new double[] {5d, 6d, 7d})))
         );
 
         String createdUuid1 = testCreateGetTs(tsRef1);
 
-        mockMvc.perform(get("/v1/timeseries-group")).andExpectAll(
+        MvcResult res = mockMvc.perform(get("/v1/timeseries-group")).andExpectAll(
                 status().isOk(),
                 content().json(getAllRef(Map.of(createdUuid1, tsRef1)))
-        );
+        ).andReturn();
+        System.out.println(res.getResponse().getContentAsString());
 
         IrregularTimeSeriesIndex irregularIndex = new IrregularTimeSeriesIndex(new long[] { 0, 1, 2 });
         List<TimeSeries> tsRef2 = List.of(
@@ -159,6 +167,15 @@ public class TimeSeriesIT {
                 status().isOk(),
                 content().json(getAllRef(Map.of(createdUuid3, tsRef3)))
         );
+        
+        List<TimeSeries> tsRef4 = List.of(
+           TimeSeries.createDouble("first", regularIndex, 2d,3d,4d),
+           TimeSeries.createDouble("second", irregularIndex, 5d,6d,7d)
+        );
+        mockMvc.perform(
+            post("/v1/timeseries-group")
+                .content(TimeSeries.toJson(tsRef4))
+        ).andExpect(status().isBadRequest());
     }
 
 }

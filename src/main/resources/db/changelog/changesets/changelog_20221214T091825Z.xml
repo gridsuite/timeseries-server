@@ -5,6 +5,9 @@
             <column name="id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="timeseries_groupPK"/>
             </column>
+            <column name="index" type="CLOB"/>
+            <column name="index_type" type="VARCHAR(255)"/>
+            <column name="metadatas" type="CLOB"/>
         </createTable>
     </changeSet>
     <changeSet author="jon schuhmacher" id="1671009514035-1">

@@ -6,14 +6,28 @@
  */
 package org.gridsuite.timeseries.server;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import javax.transaction.Transactional;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.powsybl.commons.json.JsonUtil;
+import com.powsybl.timeseries.InfiniteTimeSeriesIndex;
+import com.powsybl.timeseries.IrregularTimeSeriesIndex;
+import com.powsybl.timeseries.RegularTimeSeriesIndex;
 import com.powsybl.timeseries.TimeSeries;
+import com.powsybl.timeseries.TimeSeriesIndex;
+import com.powsybl.timeseries.TimeSeriesMetadata;
 
 /**
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
@@ -23,30 +37,67 @@ public class TimeseriesService {
 
     private final TimeseriesGroupRepository timeseriesGroupRepository;
     private final TimeseriesDataRepository timeseriesDataRepository;
+    private final TimeSeriesMetadataService timeseriesMetadataService;
 
-    public List<TimeseriesGroupEntity> getTimeseriesGroupsList() {
-        return timeseriesGroupRepository.findAll();
+    // TODO to remove when metadata are properly modeled
+    private final ObjectMapper objectmapper;
+
+    public List<Map<String, UUID>> getTimeseriesGroupsIds() {
+        return timeseriesGroupRepository.findAll().stream()
+                .map(tsGroup -> Map.of("id", tsGroup.getId()))
+                .collect(Collectors.toList());
     }
 
     public TimeseriesService(TimeseriesGroupRepository timeseriesGroupRepository,
-            TimeseriesDataRepository timeseriesDataRepository) {
+            TimeseriesDataRepository timeseriesDataRepository, TimeSeriesMetadataService timeseriesMetadataService,
+            ObjectMapper objectMapper) {
         this.timeseriesGroupRepository = timeseriesGroupRepository;
         this.timeseriesDataRepository = timeseriesDataRepository;
+        this.timeseriesMetadataService = timeseriesMetadataService;
+        this.objectmapper = objectMapper;
     }
+
+    private void synchronizeIndex(List<TimeSeries> timeseries) {
+        // For now this just throws when the index is not the same for all
+        TimeSeriesIndex index = timeseries.get(0).getMetadata().getIndex();
+        for (TimeSeries ts : timeseries) {
+            try {
+                ts.synchronize(index);
+            } catch (UnsupportedOperationException e) {
+                //TODO better messages (return all problems at once?)
+                //TODO use better API than catching UnsupportedOperationException
+                //TODO better separation of service API and controller API: don't speak http here
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Different index for " + timeseries.get(0).getMetadata().getName()
+                        + "and " + ts.getMetadata().getName());
+            }
+        }
+    }
+
 
     @Transactional
     public UUID createTimeseriesGroup(List<TimeSeries> timeseries) {
-        // TODO assert index is the same
-        // TODO save index
-        TimeseriesGroupEntity tsGroup = timeseriesGroupRepository.save(new TimeseriesGroupEntity());
+        synchronizeIndex(timeseries);
+
+        // TODO proper modeling instead of json
+        TimeSeriesIndex index = timeseries.get(0).getMetadata().getIndex();
+        String indexType = index.getType();
+        String indexJson = index.toJson();
+        String metadatasJson = timeseriesMetadataService.gatherIndividualMetadatas(timeseries);
+
+        TimeseriesGroupEntity tsGroup = timeseriesGroupRepository.save(new TimeseriesGroupEntity(indexType, indexJson, metadatasJson));
         timeseriesDataRepository.save(tsGroup.getId(), timeseries);
         return tsGroup.getId();
     }
 
+
     @Transactional
     public List<TimeSeries> getTimeseriesGroup(UUID uuid, boolean tryToCompress, String time, String col) {
-        // TODO return saved index
-        List<TimeSeries> tsData = timeseriesDataRepository.findById(uuid, tryToCompress, time, col);
+        TimeseriesGroupEntity tsGroup = timeseriesGroupRepository.findById(uuid).orElseThrow();
+        TimeSeriesIndex index = timeseriesMetadataService.readIndex(tsGroup.getIndexType(), tsGroup.getIndex());
+        Map<String, Object> individualMetadatas = timeseriesMetadataService.scatterIndividualMetadatas(tsGroup.getMetadatas());
+
+        List<TimeSeries> tsData = timeseriesDataRepository.findById(index, individualMetadatas, tsGroup.getId(), tryToCompress, time, col);
         return tsData;
     }
 

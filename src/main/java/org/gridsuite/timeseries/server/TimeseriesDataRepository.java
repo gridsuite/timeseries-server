@@ -31,6 +31,7 @@ import com.powsybl.timeseries.StringDataChunk;
 import com.powsybl.timeseries.StringTimeSeries;
 import com.powsybl.timeseries.TimeSeries;
 import com.powsybl.timeseries.TimeSeriesDataType;
+import com.powsybl.timeseries.TimeSeriesIndex;
 import com.powsybl.timeseries.TimeSeriesMetadata;
 import com.powsybl.timeseries.UncompressedDoubleDataChunk;
 import com.powsybl.timeseries.UncompressedStringDataChunk;
@@ -55,6 +56,9 @@ public class TimeseriesDataRepository {
 
     @Autowired
     private HikariDataSource datasource;
+
+    @Autowired
+    private TimeSeriesMetadataService timeseriesMetadataService;
 
     // TODO tune these parameters for performance
     // TODO make these parameters in application.yaml
@@ -170,17 +174,16 @@ public class TimeseriesDataRepository {
         LOGGER.debug("inserted {} took: {}ms", uuid, ((b-a)/1000000));
     }
 
-    public List<TimeSeries> findById(UUID uuid, boolean tryToCompress, String time, String col) {
+    public List<TimeSeries> findById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, String col) {
         try {
-            return dofindById(uuid, tryToCompress, time, col);
+            return dofindById(index, individualMetadatas, uuid, tryToCompress, time, col);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
     // TODO untangle multithreaded scatter/gather from actual work
-    private List<TimeSeries> dofindById(UUID uuid, boolean tryToCompress, String time, String col) throws Exception {
-
+    private List<TimeSeries> dofindById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, String col) throws Exception {
         long a = System.nanoTime();
         int cnt=-1;
         //TODO maintain this as a separate metadata instead of select count(*) when requesting all rows ?
@@ -278,8 +281,7 @@ public class TimeseriesDataRepository {
                 }
                 // TODO more types
                 // TODO index from client
-                TimeSeries timeseries = new StoredDoubleTimeSeries(new TimeSeriesMetadata(entry.getKey(),
-                        TimeSeriesDataType.DOUBLE, new RegularTimeSeriesIndex(0, res.size() - 1, 1)), List.of(ddc));
+                TimeSeries timeseries = new StoredDoubleTimeSeries(timeseriesMetadataService.getMetadata(index, individualMetadatas, entry.getKey()), List.of(ddc));
                 ret.add(timeseries);
             } else if (entry.getValue().get(0) instanceof String) {
                 String[] strings = entry.getValue().toArray(new String[0]);
@@ -292,8 +294,7 @@ public class TimeseriesDataRepository {
                 }
                 // TODO more types
                 // TODO index from client
-                TimeSeries timeseries = new StringTimeSeries(new TimeSeriesMetadata(entry.getKey(),
-                        TimeSeriesDataType.STRING, new RegularTimeSeriesIndex(0, res.size() - 1, 1)), List.of(ddc));
+                TimeSeries timeseries = new StringTimeSeries(timeseriesMetadataService.getMetadata(index, individualMetadatas, entry.getKey()), List.of(ddc));
                 ret.add(timeseries);
             } else {
                 throw new RuntimeException("Unsupported read of timeseries type" + entry.getValue().get(0).getClass());
