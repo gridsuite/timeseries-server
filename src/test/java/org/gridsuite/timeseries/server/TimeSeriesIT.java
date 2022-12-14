@@ -96,7 +96,7 @@ public class TimeSeriesIT {
                         .content(TimeSeries.toJson(tsRef))
                 ).andExpect(status().isOk())
                 .andReturn();
-        String createdUuid = mapper.readValue(resCreate.getResponse().getContentAsString(), String.class);
+        String createdUuid = (String) mapper.readValue(resCreate.getResponse().getContentAsString(), Map.class).get("id");
 
         MvcResult resGet = mockMvc.perform(get("/v1/timeseries-group/{uuid}", createdUuid)).andExpect(status().isOk())
                 .andReturn();

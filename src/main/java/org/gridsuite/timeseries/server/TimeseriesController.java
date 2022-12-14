@@ -55,9 +55,9 @@ public class TimeseriesController {
     @Operation(summary = "create a timeseries group")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The timeseries group was successfully created")})
     //TODO better interface with springboot's objectmapper using the timeseries jackson in powsybl ?
-    public UUID createTimeseriesGroup(@RequestBody String timeseries) {
+    public Map<String, Object> createTimeseriesGroup(@RequestBody String timeseries) {
         List<TimeSeries> list = TimeSeries.parseJson(timeseries);
-        return timeseriesService.createTimeseriesGroup(list);
+        return Map.of("id", timeseriesService.createTimeseriesGroup(list));
     }
 
     @GetMapping(value = "/timeseries-group/{uuid}")
