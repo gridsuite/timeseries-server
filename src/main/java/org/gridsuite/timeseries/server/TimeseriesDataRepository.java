@@ -15,6 +15,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
+import java.util.function.BiFunction;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,10 +27,13 @@ import com.powsybl.timeseries.DoubleDataChunk;
 import com.powsybl.timeseries.DoubleTimeSeries;
 import com.powsybl.timeseries.RegularTimeSeriesIndex;
 import com.powsybl.timeseries.StoredDoubleTimeSeries;
+import com.powsybl.timeseries.StringDataChunk;
+import com.powsybl.timeseries.StringTimeSeries;
 import com.powsybl.timeseries.TimeSeries;
 import com.powsybl.timeseries.TimeSeriesDataType;
 import com.powsybl.timeseries.TimeSeriesMetadata;
 import com.powsybl.timeseries.UncompressedDoubleDataChunk;
+import com.powsybl.timeseries.UncompressedStringDataChunk;
 import com.zaxxer.hikari.HikariDataSource;
 
 /**
@@ -87,11 +91,23 @@ public class TimeseriesDataRepository {
         // data from the client to the database, the server has to buffer in memory.
         // try to change the API to allow streaming.
         // TODO avoid copying the data (timeseries toArray())?
-        List<double[]> data = new ArrayList<>();
-        for (int i=0; i<listTimeseries.size(); i++) {
-            //TODO other types
-            // TODO timeseries raw type
-            data.add(((DoubleTimeSeries) listTimeseries.get(i)).toArray());
+        BiFunction<Integer, Integer, Object> stringOrDoubledataGetter;
+        if (listTimeseries.get(0) instanceof DoubleTimeSeries) {
+            List<double[]> datadouble = new ArrayList<>();
+            for (int i = 0; i < listTimeseries.size(); i++) {
+                // TODO timeseries raw type
+                datadouble.add(((DoubleTimeSeries) listTimeseries.get(i)).toArray());
+            }
+            stringOrDoubledataGetter = (row, col) -> datadouble.get(row)[col];
+        } else if (listTimeseries.get(0) instanceof StringTimeSeries) {
+            List<String[]> datastring = new ArrayList<>();
+            for (int i = 0; i < listTimeseries.size(); i++) {
+
+                datastring.add(((StringTimeSeries) listTimeseries.get(i)).toArray());
+            }
+            stringOrDoubledataGetter = (row, col) -> datastring.get(row)[col];
+        } else {
+            throw new RuntimeException("Unsupported save of timeseries type" + listTimeseries.get(0).getClass());
         }
 
         for (int i=0; i<threadcount; i++) {
@@ -111,7 +127,7 @@ public class TimeseriesDataRepository {
                         for (int m = 0; m<colcount; m++) {
                             int col = m;
                             String tsName = listTimeseries.get(col).getMetadata().getName();
-                            Object tsData = data.get(col)[row];
+                            Object tsData = stringOrDoubledataGetter.apply(col, row);
                             tsdata.put(tsName, tsData);
                         }
                         ps.setObject(1, uuid);
@@ -236,33 +252,52 @@ public class TimeseriesDataRepository {
         // TODO same as save, avoid the transpose to allow stream from database to
         // clients ?
         // TODO avoid this extra copy to an intermediate transposed map
-        Map<String, List<Double>> data = new HashMap<>();
+        Map<String, List<Object>> data = new HashMap<>();
         for (Map.Entry<Object, Object> entry : res.entrySet()) {
             Map<Object, Object> dict = (Map) entry.getValue();
             for (Map.Entry<Object, Object> entryPoint : dict.entrySet()) {
                 String tsname = (String) entryPoint.getKey();
                 // TODO more types
-                double val = (double) entryPoint.getValue();
+                Object val = entryPoint.getValue();
                 data.computeIfAbsent(tsname, (_ignored) -> new ArrayList<>()).add(val);
             }
         }
         List<TimeSeries> ret = new ArrayList<>();
-        for (Map.Entry<String, List<Double>> entry : data.entrySet()) {
-            double[] doubles = entry.getValue().stream().mapToDouble(Double::doubleValue)
-                    .toArray();
+        for (Map.Entry<String, List<Object>> entry : data.entrySet()) {
+            // TODO remove duplication
+            if (entry.getValue().get(0) instanceof Double) {
+                double[] doubles = entry.getValue().stream().map(Double.class::cast).mapToDouble(Double::doubleValue)
+                        .toArray();
 
-            // TODO should be in the timeseries API ?
-            DoubleDataChunk ddc = new UncompressedDoubleDataChunk(0, doubles);
-            // TODO get compress mode from the metadata sent by the client
-            if (tryToCompress) {
-                ddc = ddc.tryToCompress();
+
+                // TODO should be in the timeseries API ?
+                DoubleDataChunk ddc = new UncompressedDoubleDataChunk(0, doubles);
+                // TODO get compress mode from the metadata sent by the client
+                if (tryToCompress) {
+                    ddc = ddc.tryToCompress();
+                }
+                // TODO more types
+                // TODO index from client
+                TimeSeries timeseries = new StoredDoubleTimeSeries(new TimeSeriesMetadata(entry.getKey(),
+                        TimeSeriesDataType.DOUBLE, new RegularTimeSeriesIndex(0, res.size() - 1, 1)), List.of(ddc));
+                ret.add(timeseries);
+            } else if (entry.getValue().get(0) instanceof String) {
+                String[] strings = entry.getValue().toArray(new String[0]);
+
+                // TODO should be in the timeseries API ?
+                StringDataChunk ddc = new UncompressedStringDataChunk(0, strings);
+                // TODO get compress mode from the metadata sent by the client
+                if (tryToCompress) {
+                    ddc = ddc.tryToCompress();
+                }
+                // TODO more types
+                // TODO index from client
+                TimeSeries timeseries = new StringTimeSeries(new TimeSeriesMetadata(entry.getKey(),
+                        TimeSeriesDataType.STRING, new RegularTimeSeriesIndex(0, res.size() - 1, 1)), List.of(ddc));
+                ret.add(timeseries);
+            } else {
+                throw new RuntimeException("Unsupported read of timeseries type" + entry.getValue().get(0).getClass());
             }
-            // TODO more types
-            // TODO index from client
-            TimeSeries timeseries = new StoredDoubleTimeSeries(
-                    new TimeSeriesMetadata(entry.getKey(), TimeSeriesDataType.DOUBLE,
-                    new RegularTimeSeriesIndex(0, res.size() - 1, 1)), List.of(ddc));
-            ret.add(timeseries);
         }
        
         return ret;

@@ -31,6 +31,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.powsybl.timeseries.IrregularTimeSeriesIndex;
 import com.powsybl.timeseries.RegularTimeSeriesIndex;
 import com.powsybl.timeseries.StoredDoubleTimeSeries;
+import com.powsybl.timeseries.StringTimeSeries;
 import com.powsybl.timeseries.TimeSeries;
 
 /**
@@ -66,9 +67,16 @@ public class TimeSeriesIT {
         List<TimeSeries> tsGet = TimeSeries.parseJson(actual);
 
         assertEquals(tsRef.size(), tsGet.size());
-        for (int i = 0; i < tsRef.size(); i++) {
-            assertArrayEquals(((StoredDoubleTimeSeries) tsRef.get(i)).toArray(),
-                    ((StoredDoubleTimeSeries) tsGet.get(i)).toArray(), 0);
+        if (tsRef.get(0) instanceof StoredDoubleTimeSeries) {
+            for (int i = 0; i < tsRef.size(); i++) {
+                assertArrayEquals(((StoredDoubleTimeSeries) tsRef.get(i)).toArray(),
+                        ((StoredDoubleTimeSeries) tsGet.get(i)).toArray(), 0);
+            }
+        } else if (tsRef.get(0) instanceof StringTimeSeries) {
+            for (int i = 0; i < tsRef.size(); i++) {
+                assertArrayEquals(((StringTimeSeries) tsRef.get(i)).toArray(),
+                        ((StringTimeSeries) tsGet.get(i)).toArray());
+            }
         }
     }
 
