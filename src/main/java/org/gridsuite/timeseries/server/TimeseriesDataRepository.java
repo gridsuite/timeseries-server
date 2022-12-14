@@ -7,6 +7,7 @@
 package org.gridsuite.timeseries.server;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,7 +20,6 @@ import java.util.function.BiFunction;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,7 +37,6 @@ import com.zaxxer.hikari.HikariDataSource;
 /**
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
  */
-
 @Repository
 public class TimeseriesDataRepository {
 
@@ -48,14 +47,16 @@ public class TimeseriesDataRepository {
     private static final String SELECTALL = "select time, json_obj from timeseries_group_data where group_id=? and time>=? and time <?;";
     private static final String DELETE = "delete from timeseries_group_data where group_id=?";
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper;
+    private final HikariDataSource datasource;
+    private final TimeSeriesMetadataService timeseriesMetadataService;
 
-    @Autowired
-    private HikariDataSource datasource;
-
-    @Autowired
-    private TimeSeriesMetadataService timeseriesMetadataService;
+    public TimeseriesDataRepository(ObjectMapper objectMapper, HikariDataSource datasource,
+            TimeSeriesMetadataService timeseriesMetadataService) {
+        this.objectMapper = objectMapper;
+        this.datasource = datasource;
+        this.timeseriesMetadataService = timeseriesMetadataService;
+    }
 
     // TODO tune these parameters for performance
     // TODO make these parameters in application.yaml
@@ -83,7 +84,7 @@ public class TimeseriesDataRepository {
         int threadcount = (batchcount + WRITE_THREADSIZE - 1) / WRITE_THREADSIZE;
         int threadbatches = (batchcount + threadcount - 1) / threadcount;
 
-        Callable[] callables = new Callable[threadcount];
+        List<Callable<Void>> callables = new ArrayList<>(Collections.nCopies(threadcount, null));
 
         LOGGER.debug(
                 "insert {} in batch of {} rows ({} doubles for each batch), numbatch={}, numthreads={}, threadbatches={}",
@@ -115,60 +116,64 @@ public class TimeseriesDataRepository {
 
         for (int i = 0; i < threadcount; i++) {
             int iCopy = i;
-            callables[i] = () -> {
+            callables.set(i, () -> {
                 try (var conn = datasource.getConnection();
-                     var ps = conn.prepareStatement(INSERT);
                 ) {
                     conn.setAutoCommit(false);
+                    try (var ps = conn.prepareStatement(INSERT);) {
 
-                    int threadrowstart = iCopy * threadbatches * batchrow;
-                    int remainingrows = rowcount % (threadbatches * batchrow);
-                    int threadrowcount = iCopy == threadcount - 1 && remainingrows > 0 ? remainingrows
-                            : threadbatches * batchrow;
-                    for (int l = 0; l < threadrowcount; l++) {
-                        int row = threadrowstart + l;
-                        Map<String, Object> tsdata = new HashMap<>();
-                        for (int m = 0; m < colcount; m++) {
-                            int col = m;
-                            String tsName = listTimeseries.get(col).getMetadata().getName();
-                            Object tsData = stringOrDoubledataGetter.apply(col, row);
-                            tsdata.put(tsName, tsData);
-                        }
-                        ps.setObject(1, uuid);
-                        // TODO instants/durations ?
-//                        ps.setObject(1,
-//                                Timestamp.from(listTimeseries.get(0).getMetadata().getIndex().getInstantAt(row)));
-                        ps.setInt(2, l);
-                        ps.setObject(3, objectMapper.writeValueAsString(tsdata), java.sql.Types.OTHER);
-                        ps.addBatch();
+                        int threadrowstart = iCopy * threadbatches * batchrow;
+                        int remainingrows = rowcount % (threadbatches * batchrow);
+                        int threadrowcount = iCopy == threadcount - 1 && remainingrows > 0 ? remainingrows
+                                : threadbatches * batchrow;
+                        for (int l = 0; l < threadrowcount; l++) {
+                            int row = threadrowstart + l;
+                            Map<String, Object> tsdata = new HashMap<>();
+                            for (int m = 0; m < colcount; m++) {
+                                int col = m;
+                                String tsName = listTimeseries.get(col).getMetadata().getName();
+                                Object tsData = stringOrDoubledataGetter.apply(col, row);
+                                tsdata.put(tsName, tsData);
+                            }
+                            ps.setObject(1, uuid);
+                            // TODO instants/durations ?
+                            // ps.setObject(1,
+                            //   Timestamp.from(listTimeseries.get(0).getMetadata().getIndex().getInstantAt(row)));
+                            ps.setInt(2, l);
+                            ps.setObject(3, objectMapper.writeValueAsString(tsdata), java.sql.Types.OTHER);
+                            ps.addBatch();
 
-                        if (l == threadrowcount - 1 || (l % batchrow) == batchrow - 1) {
-                            ps.executeBatch();
+                            if (l == threadrowcount - 1 || (l % batchrow) == batchrow - 1) {
+                                ps.executeBatch();
+                            }
                         }
+
+                        conn.commit();
+                    } catch (Exception e) {
+                        LOGGER.error("Error saving timeseries data", e);
+                        conn.rollback();
+                    } finally {
+                        conn.setAutoCommit(true);
                     }
-
-                    //TODO rollback
-                    conn.commit();
-                    conn.setAutoCommit(true);
                 }
                 return null;
-            };
+            });
         }
         //TODO improve multithread impl ? use better APIs than forkjoinpool ? don't create the pool for each request ?
         if (threadcount > 1) {
-            ForkJoinTask[] tasks = new ForkJoinTask[threadcount];
+            List<ForkJoinTask<Void>> tasks = new ArrayList<>(Collections.nCopies(threadcount, null));
             int size = datasource.getMaximumPoolSize();
             LOGGER.debug("Starting inserts in forkjoinpool size={}", size);
             ForkJoinPool pool = new ForkJoinPool(size);
             for (int i = 0; i < threadcount; i++) {
-                tasks[i] = pool.submit(callables[i]);
+                tasks.set(i, pool.submit(callables.get(i)));
             }
             for (int i = 0; i < threadcount; i++) {
-                tasks[i].get();
+                tasks.get(i).get();
             }
         } else {
             LOGGER.debug("Starting inserts in http thread");
-            callables[0].call();
+            callables.get(0).call();
         }
         long b = System.nanoTime();
         LOGGER.debug("inserted {} took: {}ms", uuid, (b - a) / 1000000);
@@ -199,12 +204,12 @@ public class TimeseriesDataRepository {
         }
         long b = System.nanoTime();
         int threadcount = (cnt + READ_THREADSIZE - 1) / READ_THREADSIZE;
-        Callable[] callables = new Callable[threadcount];
+        List<Callable<Map<Object, Object>>> callables = new ArrayList<>(Collections.nCopies(threadcount, null));
         for (int i = 0; i < threadcount; i++) {
             int iCopy = i;
             int threadrowstart = iCopy * READ_THREADSIZE;
             int threadrowend = (iCopy + 1) * READ_THREADSIZE;
-            callables[i] = () -> {
+            callables.set(i, () -> {
                 Map<Object, Object> threadres = new LinkedHashMap<>();
                 try (var connection = datasource.getConnection();
                 //TODO, add filter on rows (start < time < end)
@@ -226,27 +231,27 @@ public class TimeseriesDataRepository {
                     }
                 }
                 return threadres;
-            };
+            });
         }
 
         Map<Object, Object> res;
         if (threadcount > 1) {
-            ForkJoinTask[] tasks = new ForkJoinTask[threadcount];
+            List<ForkJoinTask<Map<Object, Object>>> tasks = new ArrayList<>(Collections.nCopies(threadcount, null));
             int size = datasource.getMaximumPoolSize();
             LOGGER.debug("Starting inserts in forkjoinpool size={}", size);
             ForkJoinPool pool = new ForkJoinPool(size);
             for (int i = 0; i < threadcount; i++) {
-                tasks[i] = pool.submit(callables[i]);
+                tasks.set(i, pool.submit(callables.get(i)));
             }
             res = new LinkedHashMap<>();
             for (int i = 0; i < threadcount; i++) {
                 // TODO avoid copying the data by writing directly from each thread to the final
                 // structure ?
-                res.putAll((Map) tasks[i].get());
+                res.putAll(tasks.get(i).get());
             }
         } else {
             LOGGER.debug("Starting inserts in http thread");
-            res = (Map) callables[0].call();
+            res = callables.get(0).call();
         }
         long c = System.nanoTime();
         LOGGER.debug("read {} took {}ms (count {}ms, {} queries in {} threads {}ms)", uuid, (c - a) / 1000000,
@@ -257,7 +262,7 @@ public class TimeseriesDataRepository {
         // TODO avoid this extra copy to an intermediate transposed map
         Map<String, List<Object>> data = new HashMap<>();
         for (Map.Entry<Object, Object> entry : res.entrySet()) {
-            Map<Object, Object> dict = (Map) entry.getValue();
+            Map<Object, Object> dict = (Map<Object, Object>) entry.getValue();
             for (Map.Entry<Object, Object> entryPoint : dict.entrySet()) {
                 String tsname = (String) entryPoint.getKey();
                 // TODO more types

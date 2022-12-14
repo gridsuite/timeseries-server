@@ -18,17 +18,16 @@ import javax.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
-
 /**
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
  */
-
 @Getter
 @Setter
 @Entity
 @Table(name = "timeseries_group")
 public class TimeseriesGroupEntity {
 
+    // for hibernate
     public TimeseriesGroupEntity() {
         this.indexType = null;
         this.index = null;

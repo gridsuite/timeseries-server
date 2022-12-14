@@ -14,7 +14,6 @@ import java.util.UUID;
 /**
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
  */
-
 @Repository
 public interface TimeseriesGroupRepository extends JpaRepository<TimeseriesGroupEntity, UUID> {
 }

@@ -13,7 +13,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 /**
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
  */
-
 @SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 @SpringBootApplication
 public class TimeseriesApplication {

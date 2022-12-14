@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2022, RTE (http://www.rte-france.com)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.gridsuite.timeseries.server;
 
 import java.io.IOException;
@@ -6,7 +12,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -24,11 +29,16 @@ import com.powsybl.timeseries.TimeSeriesMetadata;
 /**
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
  */
+//TODO temporary, will go away we we model metadata directly in the database
+@SuppressWarnings("all")
 @Service
 public class TimeSeriesMetadataService {
 
-    @Autowired
-    ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper;
+
+    public TimeSeriesMetadataService(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     public TimeSeriesIndex readIndex(String indexType, String indexJson) {
         return JsonUtil.parseJson(indexJson, parser -> {
