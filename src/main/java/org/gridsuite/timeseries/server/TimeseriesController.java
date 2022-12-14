@@ -54,14 +54,15 @@ public class TimeseriesController {
     @GetMapping(value = "/timeseries-group/{uuid}")
     @Operation(summary = "Get data of a timeseries groups")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The list of timeseries groups")})
-    public ResponseEntity<List<TimeSeries>> getTimeseriesGroup(
+    public ResponseEntity<String> getTimeseriesGroup(
         @PathVariable UUID uuid,
         //TODO more kinds of filters
         @RequestParam( required = false) boolean tryToCompress,
         @RequestParam( required = false) String time,
         @RequestParam( required = false) String col
     ) {
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(timeseriesService.getTimeseriesGroup(uuid, tryToCompress, time, col));
+        List<TimeSeries> list = timeseriesService.getTimeseriesGroup(uuid, tryToCompress, time, col);
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(TimeSeries.toJson(list));
     }
 
 }
