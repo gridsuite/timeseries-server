@@ -1,10 +1,7 @@
 spring:
   jpa:
     properties:
-      hibernate:
-        format_sql: true
-        jdbc:
-          lob.non_contextual_creation: true 
+      hibernate.format_sql: true
     hibernate:
       #to turn off schema validation that fails (because of clob types) and blocks tests even if the the schema is compatible
       ddl-auto: none
