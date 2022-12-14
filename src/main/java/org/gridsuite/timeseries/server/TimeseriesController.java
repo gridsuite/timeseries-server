@@ -65,4 +65,12 @@ public class TimeseriesController {
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(TimeSeries.toJson(list));
     }
 
+    @DeleteMapping(value = "/timeseries-group/{uuid}")
+    @Operation(summary = "Delete a timeseries groups")
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The timeseries group was successfully deleted")})
+    public void deleteTimeseriesGroup(
+        @PathVariable UUID uuid
+    ) {
+        timeseriesService.deleteTimeseriesGroup(uuid);
+    }
 }

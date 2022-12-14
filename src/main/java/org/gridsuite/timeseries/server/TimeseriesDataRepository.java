@@ -44,6 +44,7 @@ public class TimeseriesDataRepository {
     private static final String INSERT = "insert into timeseries_group_data ( group_id, time, json_obj ) values (?,?,?);";
     private static final String COUNT = "select count(*) from timeseries_group_data where group_id=?;";
     private static final String SELECTALL = "select time, json_obj from timeseries_group_data where group_id=? and time>=? and time <?;";
+    private static final String DELETE = "delete from timeseries_group_data where group_id=?";
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -265,6 +266,23 @@ public class TimeseriesDataRepository {
         }
        
         return ret;
+    }
+
+    private void doDelete(UUID uuid) throws Exception {
+        try (var conn = datasource.getConnection();
+                var ps = conn.prepareStatement(DELETE);
+           ) {
+            ps.setObject(1, uuid);
+            ps.executeUpdate();
+        }
+    }
+
+    public void delete(UUID uuid) {
+        try {
+            doDelete(uuid);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

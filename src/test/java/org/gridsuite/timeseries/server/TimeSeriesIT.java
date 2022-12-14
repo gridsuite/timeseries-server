@@ -6,12 +6,14 @@
  */
 package org.gridsuite.timeseries.server;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import java.util.ArrayList;
+import java.io.UnsupportedEncodingException;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.junit.Test;
@@ -23,15 +25,17 @@ import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.powsybl.timeseries.IrregularTimeSeriesIndex;
+import com.powsybl.timeseries.RegularTimeSeriesIndex;
 import com.powsybl.timeseries.StoredDoubleTimeSeries;
 import com.powsybl.timeseries.TimeSeries;
 
-import static org.junit.Assert.*;
-
 /**
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
- * 
+ *
  *         adapted from
  *         https://www.baeldung.com/spring-boot-testcontainers-integration-test
  */
@@ -41,54 +45,25 @@ import static org.junit.Assert.*;
 @SpringBootTest
 public class TimeSeriesIT {
 
-    private static final String refJson = ""
-            + "[ {\n"
-            + "    \"metadata\" : {\n"
-            + "      \"name\" : \"first\",\n"
-            + "      \"dataType\" : \"DOUBLE\",\n"
-            + "      \"tags\" : [ ],\n"
-            + "      \"irregularIndex\" : [ 0, 1, 2 ]\n"
-            + "    },\n"
-            + "    \"chunks\" : [ {\n"
-            + "      \"offset\" : 0,\n"
-            + "      \"uncompressedLength\" : 3,\n"
-            + "      \"stepValues\" : [ 1.0, 2.0 ],\n"
-            + "      \"stepLengths\" : [ 2, 1 ]\n"
-            + "    } ]\n"
-            + "  }, {\n"
-            + "    \"metadata\" : {\n"
-            + "      \"name\" : \"second\",\n"
-            + "      \"dataType\" : \"DOUBLE\",\n"
-            + "      \"tags\" : [ ],\n"
-            + "      \"irregularIndex\" : [ 0, 1, 2 ]\n"
-            + "    },\n"
-            + "    \"chunks\" : [ {\n"
-            + "      \"offset\" : 0,\n"
-            + "      \"uncompressedLength\" : 3,\n"
-            + "      \"stepValues\" : [ 3.0, 4.0 ],\n"
-            + "      \"stepLengths\" : [ 1, 2 ]\n"
-            + "    } ]\n"
-            + "  }\n"
-            + "]\n"
-    ;
-
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper mapper;
 
-    @Test
-    public void test() throws Exception {
-        mockMvc.perform(get("/v1/timeseries-group")).andExpect(status().isOk());
-        MvcResult resCreate = mockMvc.perform(post("/v1/timeseries-group").content(refJson)).andExpect(status().isOk())
-                .andReturn();
-        String createdUuid = mapper.readValue(resCreate.getResponse().getContentAsString(), String.class);
-        MvcResult resGet = mockMvc.perform(get("/v1/timeseries-group/{uuid}", createdUuid)).andExpect(status().isOk())
-                .andReturn();
-        String getJson = resGet.getResponse().getContentAsString();
-        List<TimeSeries> tsRef = TimeSeries.parseJson(refJson);
-        List<TimeSeries> tsGet = TimeSeries.parseJson(getJson);
+    // TODO check more infos in tsgroups getAll
+    private String getAllRef(Map<String, List<TimeSeries>> groupsById) throws JsonProcessingException {
+        return mapper.writeValueAsString(
+            groupsById.entrySet().stream()
+                .map(entry -> Map.of("id", entry.getKey()))
+                .collect(Collectors.toList())
+        );
+    }
+
+    // TODO compare more than just the data
+    // TODO more types
+    private void assertTimeseriesEquals(List<TimeSeries> tsRef, String actual) {
+        List<TimeSeries> tsGet = TimeSeries.parseJson(actual);
 
         assertEquals(tsRef.size(), tsGet.size());
         for (int i = 0; i < tsRef.size(); i++) {
@@ -96,4 +71,86 @@ public class TimeSeriesIT {
                     ((StoredDoubleTimeSeries) tsGet.get(i)).toArray(), 0);
         }
     }
+
+    private String testCreateGetTs(List<TimeSeries> tsRef)
+            throws Exception, JsonProcessingException, JsonMappingException, UnsupportedEncodingException {
+        MvcResult resCreate =
+                mockMvc.perform(
+                    post("/v1/timeseries-group")
+                        .content(TimeSeries.toJson(tsRef))
+                ).andExpect(status().isOk())
+                .andReturn();
+        String createdUuid = mapper.readValue(resCreate.getResponse().getContentAsString(), String.class);
+
+        MvcResult resGet = mockMvc.perform(get("/v1/timeseries-group/{uuid}", createdUuid)).andExpect(status().isOk())
+                .andReturn();
+        String getJson = resGet.getResponse().getContentAsString();
+        assertTimeseriesEquals(tsRef, getJson);
+        return createdUuid;
+    }
+
+    @Test
+    // TODO only one test for now to avoid cleaning up the db
+    public void test() throws Exception {
+        mockMvc.perform(get("/v1/timeseries-group")).andExpectAll(status().isOk(), content().json("[]"));
+
+        RegularTimeSeriesIndex regularIndex = new RegularTimeSeriesIndex(0, 2, 1);
+        List<TimeSeries> tsRef1 = List.of(
+           TimeSeries.createDouble("first", regularIndex, 2d,3d,4d),
+           TimeSeries.createDouble("second", regularIndex, 5d,6d,7d)
+        );
+
+        String createdUuid1 = testCreateGetTs(tsRef1);
+
+        mockMvc.perform(get("/v1/timeseries-group")).andExpectAll(
+                status().isOk(),
+                content().json(getAllRef(Map.of(createdUuid1, tsRef1)))
+        );
+
+        IrregularTimeSeriesIndex irregularIndex = new IrregularTimeSeriesIndex(new long[] { 0, 1, 2 });
+        List<TimeSeries> tsRef2 = List.of(
+            TimeSeries.createDouble("first", regularIndex, 2d, 3d, 4d),
+            TimeSeries.createDouble("second", regularIndex, 5d, 6d, 7d)
+        );
+
+        String createdUuid2 = testCreateGetTs(tsRef2);
+
+        mockMvc.perform(get("/v1/timeseries-group")).andExpectAll(
+            status().isOk(),
+            content().json(
+                getAllRef(Map.of(
+                    createdUuid1, tsRef1,
+                    createdUuid2, tsRef2
+                ))
+            )
+        );
+
+        mockMvc.perform(delete("/v1/timeseries-group/{uuid}", createdUuid1)).andExpect(status().isOk());
+
+        mockMvc.perform(get("/v1/timeseries-group")).andExpectAll(
+                status().isOk(),
+                content().json(getAllRef(Map.of(createdUuid2, tsRef2)))
+        );
+
+
+        mockMvc.perform(delete("/v1/timeseries-group/{uuid}", createdUuid2)).andExpect(status().isOk());
+
+        mockMvc.perform(get("/v1/timeseries-group")).andExpectAll(
+                status().isOk(),
+                content().json("[]")
+        );
+
+        List<TimeSeries> tsRef3 = List.of(
+            TimeSeries.createString("first", regularIndex, "two", "three", "four"),
+            TimeSeries.createString("second", regularIndex, "five", "six", "seven")
+        );
+
+        String createdUuid3 = testCreateGetTs(tsRef3);
+
+        mockMvc.perform(get("/v1/timeseries-group")).andExpectAll(
+                status().isOk(),
+                content().json(getAllRef(Map.of(createdUuid3, tsRef3)))
+        );
+    }
+
 }

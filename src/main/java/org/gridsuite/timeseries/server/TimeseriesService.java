@@ -50,4 +50,10 @@ public class TimeseriesService {
         return tsData;
     }
 
+    @Transactional
+    public void deleteTimeseriesGroup(UUID uuid) {
+        timeseriesDataRepository.delete(uuid);
+        timeseriesGroupRepository.deleteById(uuid);
+    }
+
 }
