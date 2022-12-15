@@ -214,7 +214,12 @@ public class TimeseriesDataRepository {
                 Map<Object, Object> threadres = new LinkedHashMap<>();
                 try (var connection = datasource.getConnection();
                 //TODO, add filter on rows (start < time < end)
-                //TODO, add filter on cols ( select json_obj->>XXX, json_obj->>YYY, ...  instead of the whole json_obj)
+                //TODO, add filter on cols ( select  json_build_object ('a', json_obj->'a', 'd', json_obj->'d', 'e', json_obj->'e'), ...  instead of the whole json_obj)
+                //TODO, add filter on cols by range (alphabetical) ?
+                //TODO, add filter on cols by individual timeseries tag ? to select a tagged subgroup?
+                // if we add subgroup tagging, then we can allow double and strings in the same group,
+                // because we can then do aggregates (min, max, mean, kpercentile) etc in compatible subgroups
+                // this is only useful if subgroups overlap, otherwise you can just create separate groups
                 //     var ps = connection.prepareStatement("select  sim_time,  from simulations_10 where group_id=? and and sim_time >= ? and sim_time < ?;");
                      var ps = connection.prepareStatement(SELECTALL);
                 ) {
