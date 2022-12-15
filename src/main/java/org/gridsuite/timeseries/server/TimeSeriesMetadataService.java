@@ -7,6 +7,7 @@
 package org.gridsuite.timeseries.server;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -93,7 +94,7 @@ public class TimeSeriesMetadataService {
     public Map<String, Object> scatterIndividualMetadatas(String metadatas) {
         try {
             List<Map<String, Object>> list = objectMapper.readValue(metadatas, List.class);
-            return list.stream().collect(Collectors.toMap(map -> (String) map.get("name"), Function.identity()));
+            return list.stream().collect(Collectors.toMap(map -> (String) map.get("name"), Function.identity(), (e1,e2) -> e1, LinkedHashMap::new));
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Error restoring individual metadatas", e);
         }

@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -48,6 +49,9 @@ import com.powsybl.timeseries.UncompressedDoubleDataChunk;
 @AutoConfigureMockMvc
 @SpringBootTest
 public class TimeSeriesIT {
+
+    private static final int LARGE_ROWS = 600;
+    private static final int LARGE_COLS = 400;
 
     @Autowired
     private MockMvc mockMvc;
@@ -176,6 +180,29 @@ public class TimeSeriesIT {
             post("/v1/timeseries-group")
                 .content(TimeSeries.toJson(tsRef4))
         ).andExpect(status().isBadRequest());
+
+        RegularTimeSeriesIndex largeRegularIndex = new RegularTimeSeriesIndex(0, LARGE_ROWS - 1, 1);
+        List<TimeSeries> tsRefLargeDouble = new ArrayList<>(LARGE_COLS);
+        for (int i = 0; i < LARGE_COLS; i++) {
+            double[] values = new double[LARGE_ROWS];
+            for (int j = 0; j < LARGE_ROWS; j++) {
+                values[j] = i * LARGE_ROWS + j;
+            }
+            tsRefLargeDouble.add(TimeSeries.createDouble("large" + i, largeRegularIndex, values));
+        }
+        String createdUuidLargeDouble = testCreateGetTs(tsRefLargeDouble);
+        List<TimeSeries> tsRefLargeString = new ArrayList<>(LARGE_ROWS);
+        for (int i = 0; i < LARGE_COLS; i++) {
+            String[] values = new String[LARGE_ROWS];
+            for (int j = 0; j < LARGE_ROWS; j++) {
+                values[j] = Integer.toString(i * LARGE_ROWS + j);
+            }
+            tsRefLargeString.add(TimeSeries.createString("large" + i, largeRegularIndex, values));
+        }
+        String createdUuidLargeString = testCreateGetTs(tsRefLargeString);
+        mockMvc.perform(delete("/v1/timeseries-group/{uuid}", createdUuidLargeDouble)).andExpect(status().isOk());
+        mockMvc.perform(delete("/v1/timeseries-group/{uuid}", createdUuidLargeString)).andExpect(status().isOk());
+
     }
 
 }

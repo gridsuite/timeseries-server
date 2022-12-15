@@ -44,7 +44,7 @@ public class TimeseriesDataRepository {
 
     private static final String INSERT = "insert into timeseries_group_data ( group_id, time, json_obj ) values (?,?,?);";
     private static final String COUNT = "select count(*) from timeseries_group_data where group_id=?;";
-    private static final String SELECTALL = "select time, json_obj from timeseries_group_data where group_id=? and time>=? and time <?;";
+    private static final String SELECTALL = "select time, json_obj from timeseries_group_data where group_id=? and time>=? and time <? order by time;";
     private static final String DELETE = "delete from timeseries_group_data where group_id=?";
 
     private final ObjectMapper objectMapper;
@@ -139,7 +139,7 @@ public class TimeseriesDataRepository {
                             // TODO instants/durations ?
                             // ps.setObject(1,
                             //   Timestamp.from(listTimeseries.get(0).getMetadata().getIndex().getInstantAt(row)));
-                            ps.setInt(2, l);
+                            ps.setInt(2, row);
                             ps.setObject(3, objectMapper.writeValueAsString(tsdata), java.sql.Types.OTHER);
                             ps.addBatch();
 
@@ -152,6 +152,7 @@ public class TimeseriesDataRepository {
                     } catch (Exception e) {
                         LOGGER.error("Error saving timeseries data", e);
                         conn.rollback();
+                        throw new RuntimeException(e);
                     } finally {
                         conn.setAutoCommit(true);
                     }

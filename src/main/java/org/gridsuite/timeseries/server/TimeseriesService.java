@@ -9,6 +9,7 @@ package org.gridsuite.timeseries.server;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import javax.transaction.Transactional;
@@ -88,7 +89,9 @@ public class TimeseriesService {
         Map<String, Object> individualMetadatas = timeseriesMetadataService.scatterIndividualMetadatas(tsGroup.getMetadatas());
 
         List<TimeSeries> tsData = timeseriesDataRepository.findById(index, individualMetadatas, tsGroup.getId(), tryToCompress, time, col);
-        return tsData;
+        Map<String, TimeSeries> tsDataByName = tsData.stream().collect(Collectors.toMap(ts -> ts.getMetadata().getName(), Function.identity()));
+        List<TimeSeries> tsDataOrdered = individualMetadatas.keySet().stream().map(tsDataByName::get).collect(Collectors.toList());
+        return tsDataOrdered;
     }
 
     @Transactional
