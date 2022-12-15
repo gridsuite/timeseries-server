@@ -1,0 +1,12 @@
+# VSCode
+/.vscode
+/.settings
+.classpath
+.factorypath
+.project
+
+target/
+
+# IntelliJ
+/.idea
+*.iml
