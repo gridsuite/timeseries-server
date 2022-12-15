@@ -10,12 +10,17 @@
             <column name="metadatas" type="CLOB"/>
         </createTable>
     </changeSet>
-    <changeSet author="jon schuhmacher" id="1671009514035-1">
+    <changeSet author="jon schuhmacher" id="1671009514035-2">
         <!-- TODO foreign key group data to group -->
         <!-- TODO primary key with index -->
         <createTable tableName="timeseries_group_data">
-            <column name="group_id" type="UUID"/>
-            <column name="time" type="INT"/> <!-- TODO instants/duration -->
+            <column name="group_id" type="UUID">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="timeseries_group_data_pk"/>
+            </column>
+            <!-- TODO instants/duration, keep this int and add another column ? -->
+            <column name="time" type="INT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="timeseries_group_data_pk"/>
+            </column>
             <column name="json_obj" type="JSONB"/>
         </createTable>
     </changeSet>
