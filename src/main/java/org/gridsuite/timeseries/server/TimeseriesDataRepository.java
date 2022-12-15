@@ -239,7 +239,7 @@ public class TimeseriesDataRepository {
         if (threadcount > 1) {
             List<ForkJoinTask<Map<Object, Object>>> tasks = new ArrayList<>(Collections.nCopies(threadcount, null));
             int size = datasource.getMaximumPoolSize();
-            LOGGER.debug("Starting inserts in forkjoinpool size={}", size);
+            LOGGER.debug("Starting selects in forkjoinpool size={}", size);
             ForkJoinPool pool = new ForkJoinPool(size);
             for (int i = 0; i < threadcount; i++) {
                 tasks.set(i, pool.submit(callables.get(i)));
