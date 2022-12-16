@@ -59,6 +59,11 @@ public class TimeseriesController {
         return Map.of("id", timeseriesService.createTimeseriesGroup(list));
     }
 
+    @GetMapping(value = "/timeseries-group/{uuid}/metadata")
+    public String getTimeseriesGroupMetadata(@PathVariable UUID uuid) {
+        return timeseriesService.getTimeseriesGroupMetadataJson(uuid);
+    }
+
     @GetMapping(value = "/timeseries-group/{uuid}")
     @Operation(summary = "Get data of a timeseries groups")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The list of timeseries groups")})

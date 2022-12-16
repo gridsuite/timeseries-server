@@ -21,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.powsybl.timeseries.TimeSeries;
 import com.powsybl.timeseries.TimeSeriesIndex;
+import com.powsybl.timeseries.TimeSeriesMetadata;
 
 /**
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
@@ -74,8 +75,8 @@ public class TimeseriesService {
         // TODO proper modeling instead of json
         TimeSeriesIndex index = timeseries.get(0).getMetadata().getIndex();
         String indexType = index.getType();
-        String indexJson = index.toJson();
-        String metadatasJson = timeseriesMetadataService.gatherIndividualMetadatas(timeseries);
+        String indexJson = timeseriesMetadataService.indexToJson(index);
+        String metadatasJson = timeseriesMetadataService.individualTimeseriesMetadatasToJson(timeseries);
 
         TimeseriesGroupEntity tsGroup = timeseriesGroupRepository.save(new TimeseriesGroupEntity(indexType, indexJson, metadatasJson));
         timeseriesDataRepository.save(tsGroup.getId(), timeseries);
@@ -83,10 +84,19 @@ public class TimeseriesService {
     }
 
     @Transactional
+    public String getTimeseriesGroupMetadataJson(UUID uuid) {
+        TimeseriesGroupEntity timeseriesGroupEntity = timeseriesGroupRepository.findById(uuid).orElseThrow();
+        TimeSeriesIndex index = timeseriesMetadataService.indexFromJson(timeseriesGroupEntity.getIndexType(), timeseriesGroupEntity.getIndex());
+        List<TimeSeriesMetadata> metadatas = timeseriesMetadataService.timeseriesMetadataListFromJson(index, timeseriesGroupEntity.getMetadatas());
+        return timeseriesMetadataService.allMetadatasToJson(timeseriesGroupEntity.getId(), index, metadatas);
+    }
+
+    @Transactional
     public List<TimeSeries> getTimeseriesGroup(UUID uuid, boolean tryToCompress, String time, String col) {
         TimeseriesGroupEntity tsGroup = timeseriesGroupRepository.findById(uuid).orElseThrow();
-        TimeSeriesIndex index = timeseriesMetadataService.readIndex(tsGroup.getIndexType(), tsGroup.getIndex());
-        Map<String, Object> individualMetadatas = timeseriesMetadataService.scatterIndividualMetadatas(tsGroup.getMetadatas());
+        TimeSeriesIndex index = timeseriesMetadataService.indexFromJson(tsGroup.getIndexType(), tsGroup.getIndex());
+        Map<String, Object> individualMetadatas = timeseriesMetadataService
+                .individualMetadatasMapFromJson(tsGroup.getMetadatas());
 
         List<TimeSeries> tsData = timeseriesDataRepository.findById(index, individualMetadatas, tsGroup.getId(), tryToCompress, time, col);
         Map<String, TimeSeries> tsDataByName = tsData.stream().collect(Collectors.toMap(ts -> ts.getMetadata().getName(), Function.identity()));

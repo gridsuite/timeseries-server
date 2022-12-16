@@ -32,12 +32,14 @@ import org.springframework.test.web.servlet.MvcResult;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.powsybl.commons.json.JsonUtil;
 import com.powsybl.timeseries.IrregularTimeSeriesIndex;
 import com.powsybl.timeseries.RegularTimeSeriesIndex;
 import com.powsybl.timeseries.StoredDoubleTimeSeries;
 import com.powsybl.timeseries.StringTimeSeries;
 import com.powsybl.timeseries.TimeSeries;
 import com.powsybl.timeseries.TimeSeriesDataType;
+import com.powsybl.timeseries.TimeSeriesIndex;
 import com.powsybl.timeseries.TimeSeriesMetadata;
 import com.powsybl.timeseries.UncompressedDoubleDataChunk;
 
@@ -91,6 +93,28 @@ public class TimeSeriesIT {
         }
     }
 
+    // TODO try to simplify ?
+    private void assertTimeseriesMetadataEquals(List<TimeSeries> tsRef, String getMetadataJson) throws Exception {
+        Map<String, Object> getMetadatasParsed = mapper.readValue(getMetadataJson, Map.class);
+        TimeSeriesIndex refIndex = tsRef.get(0).getMetadata().getIndex();
+        assertEquals(refIndex.getType(), getMetadatasParsed.get("indexType"));
+        assertEquals(mapper.readValue(refIndex.toJson(), Object.class), getMetadatasParsed.get(refIndex.getType()));
+        List<TimeSeriesMetadata> refMetadatas = tsRef.stream()
+                .map(TimeSeries::getMetadata)
+                .collect(Collectors.toList());
+        List<Map<String, Object>> getIndividualMetadatas = (List<Map<String, Object>>) getMetadatasParsed.get("metadatas");
+        assertEquals(refMetadatas.size(), getIndividualMetadatas.size());
+        for (int i = 0; i < getIndividualMetadatas.size(); i++) {
+            TimeSeriesMetadata refMetadata = refMetadatas.get(i);
+            Map<String, Object> getMetadataParse = getIndividualMetadatas.get(i);
+            String refMetadataJson = JsonUtil.toJson(generator -> refMetadata.writeJson(generator));
+            Map<String, Object> refMetadataParsed = (Map<String, Object>) mapper.readValue(refMetadataJson, Object.class);
+            // expected is the metadata in TimeSeriesMetadata without the index (only individual metadatas)
+            refMetadataParsed.remove(refMetadata.getIndex().getType());
+            assertEquals(refMetadataParsed, getMetadataParse);
+        }
+    }
+
     private String testCreateGetTs(List<TimeSeries> tsRef)
             throws Exception, JsonProcessingException, JsonMappingException, UnsupportedEncodingException {
         MvcResult resCreate =
@@ -105,6 +129,12 @@ public class TimeSeriesIT {
                 .andReturn();
         String getJson = resGet.getResponse().getContentAsString();
         assertTimeseriesEquals(tsRef, getJson);
+
+        MvcResult resGetMetadata = mockMvc.perform(get("/v1/timeseries-group/{uuid}/metadata", createdUuid))
+                .andExpect(status().isOk()).andReturn();
+        String getMetadataJson = resGetMetadata.getResponse().getContentAsString();
+        assertTimeseriesMetadataEquals(tsRef, getMetadataJson);
+
         return createdUuid;
     }
 
@@ -202,7 +232,6 @@ public class TimeSeriesIT {
         String createdUuidLargeString = testCreateGetTs(tsRefLargeString);
         mockMvc.perform(delete("/v1/timeseries-group/{uuid}", createdUuidLargeDouble)).andExpect(status().isOk());
         mockMvc.perform(delete("/v1/timeseries-group/{uuid}", createdUuidLargeString)).andExpect(status().isOk());
-
     }
 
 }
