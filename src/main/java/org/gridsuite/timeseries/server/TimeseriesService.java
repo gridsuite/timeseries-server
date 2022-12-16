@@ -8,6 +8,7 @@ package org.gridsuite.timeseries.server;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -92,7 +93,7 @@ public class TimeseriesService {
     }
 
     @Transactional
-    public List<TimeSeries> getTimeseriesGroup(UUID uuid, boolean tryToCompress, String time, String col) {
+    public List<TimeSeries> getTimeseriesGroup(UUID uuid, boolean tryToCompress, String time, List<String> col) {
         TimeseriesGroupEntity tsGroup = timeseriesGroupRepository.findById(uuid).orElseThrow();
         TimeSeriesIndex index = timeseriesMetadataService.indexFromJson(tsGroup.getIndexType(), tsGroup.getIndex());
         Map<String, Object> individualMetadatas = timeseriesMetadataService
@@ -100,7 +101,9 @@ public class TimeseriesService {
 
         List<TimeSeries> tsData = timeseriesDataRepository.findById(index, individualMetadatas, tsGroup.getId(), tryToCompress, time, col);
         Map<String, TimeSeries> tsDataByName = tsData.stream().collect(Collectors.toMap(ts -> ts.getMetadata().getName(), Function.identity()));
-        List<TimeSeries> tsDataOrdered = individualMetadatas.keySet().stream().map(tsDataByName::get).collect(Collectors.toList());
+        List<TimeSeries> tsDataOrdered = individualMetadatas.keySet().stream().flatMap(
+            name -> Optional.ofNullable(tsDataByName.get(name)).stream()
+        ).collect(Collectors.toList());
         return tsDataOrdered;
     }
 

@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -115,6 +116,12 @@ public class TimeSeriesIT {
         }
     }
 
+    private Pair<List<TimeSeries>, String> someCols(List<TimeSeries> tsRef, int n) {
+        String col = tsRef.stream().map(TimeSeries::getMetadata).map(TimeSeriesMetadata::getName).limit(n)
+                .collect(Collectors.joining(","));
+        return Pair.of(tsRef.stream().limit(n).collect(Collectors.toList()), col);
+    }
+
     private String testCreateGetTs(List<TimeSeries> tsRef)
             throws Exception, JsonProcessingException, JsonMappingException, UnsupportedEncodingException {
         MvcResult resCreate =
@@ -134,6 +141,20 @@ public class TimeSeriesIT {
                 .andExpect(status().isOk()).andReturn();
         String getMetadataJson = resGetMetadata.getResponse().getContentAsString();
         assertTimeseriesMetadataEquals(tsRef, getMetadataJson);
+
+        // TODO here if we try with 51 instead of 50 we get
+        // Caused by: org.postgresql.util.PSQLException: ERROR: cannot pass more than 100 arguments to a function
+        // this is for the json_build_object ('a', json_obj->'a', 'd', json_obj->'d , ...) select
+        for (int n : List.of(1, 2, tsRef.size() - 1, tsRef.size())
+                .stream().map(x -> Math.max(1, Math.min(50, x))).distinct().collect(Collectors.toList())) {
+            Pair<List<TimeSeries>, String> pairCols = someCols(tsRef, n);
+            String somecols = pairCols.getRight();
+            List<TimeSeries> someTimeseries = pairCols.getLeft();
+            MvcResult resGetcol = mockMvc.perform(get("/v1/timeseries-group/{uuid}?col={col}", createdUuid, somecols))
+                    .andExpect(status().isOk()).andReturn();
+            String getColJson = resGetcol.getResponse().getContentAsString();
+            assertTimeseriesEquals(someTimeseries, getColJson);
+        }
 
         return createdUuid;
     }

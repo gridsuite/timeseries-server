@@ -17,6 +17,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +47,20 @@ public class TimeseriesDataRepository {
     private static final String COUNT = "select count(*) from timeseries_group_data where group_id=?;";
     private static final String SELECTALL = "select time, json_obj from timeseries_group_data where group_id=? and time>=? and time <? order by time;";
     private static final String DELETE = "delete from timeseries_group_data where group_id=?";
+
+    private String makeSelectAll(List<String> col) {
+        //TODO validate col sql injection
+        //filter on cols ( select time, json_build_object ('a', json_obj->'a', 'd', json_obj->'d', 'e', json_obj->'e'), ...  instead of the whole json_obj)
+        if (col == null || col.isEmpty()) {
+            return SELECTALL;
+        } else {
+            // TODO here if we try with 51 cols we get an exception
+            // Caused by: org.postgresql.util.PSQLException: ERROR: cannot pass more than 100 arguments to a function
+            return col.stream().map(c -> "'" + c + "', json_obj->'" + c + "'").collect(Collectors.joining(", ",
+                    "select time, json_build_object (",
+                    ") json_obj from timeseries_group_data where group_id=? and time>=? and time <? order by time;"));
+        }
+    }
 
     private final ObjectMapper objectMapper;
     private final HikariDataSource datasource;
@@ -180,7 +195,7 @@ public class TimeseriesDataRepository {
         LOGGER.debug("inserted {} took: {}ms", uuid, (b - a) / 1000000);
     }
 
-    public List<TimeSeries> findById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, String col) {
+    public List<TimeSeries> findById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> col) {
         try {
             return dofindById(index, individualMetadatas, uuid, tryToCompress, time, col);
         } catch (Exception e) {
@@ -189,7 +204,7 @@ public class TimeseriesDataRepository {
     }
 
     // TODO untangle multithreaded scatter/gather from actual work
-    private List<TimeSeries> dofindById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, String col) throws Exception {
+    private List<TimeSeries> dofindById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> col) throws Exception {
         long a = System.nanoTime();
         int cnt = -1;
         //TODO maintain this as a separate metadata instead of select count(*) when requesting all rows ?
@@ -214,14 +229,13 @@ public class TimeseriesDataRepository {
                 Map<Object, Object> threadres = new LinkedHashMap<>();
                 try (var connection = datasource.getConnection();
                 //TODO, add filter on rows (start < time < end)
-                //TODO, add filter on cols ( select  json_build_object ('a', json_obj->'a', 'd', json_obj->'d', 'e', json_obj->'e'), ...  instead of the whole json_obj)
                 //TODO, add filter on cols by range (alphabetical) ?
                 //TODO, add filter on cols by individual timeseries tag ? to select a tagged subgroup?
                 // if we add subgroup tagging, then we can allow double and strings in the same group,
                 // because we can then do aggregates (min, max, mean, kpercentile) etc in compatible subgroups
                 // this is only useful if subgroups overlap, otherwise you can just create separate groups
                 //     var ps = connection.prepareStatement("select  sim_time,  from simulations_10 where group_id=? and and sim_time >= ? and sim_time < ?;");
-                     var ps = connection.prepareStatement(SELECTALL);
+                     var ps = connection.prepareStatement(makeSelectAll(col));
                 ) {
                     ps.setObject(1, uuid);
                     // TODO instants/durations ?
