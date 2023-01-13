@@ -30,6 +30,7 @@ import com.powsybl.timeseries.StoredDoubleTimeSeries;
 import com.powsybl.timeseries.StringDataChunk;
 import com.powsybl.timeseries.StringTimeSeries;
 import com.powsybl.timeseries.TimeSeries;
+import com.powsybl.timeseries.TimeSeriesDataType;
 import com.powsybl.timeseries.TimeSeriesIndex;
 import com.powsybl.timeseries.UncompressedDoubleDataChunk;
 import com.powsybl.timeseries.UncompressedStringDataChunk;
@@ -111,14 +112,14 @@ public class TimeSeriesDataRepository {
         // try to change the API to allow streaming.
         // TODO avoid copying the data (timeseries toArray())?
         BiFunction<Integer, Integer, Object> stringOrDoubledataGetter;
-        if (listTimeseries.get(0) instanceof DoubleTimeSeries) {
+        if (TimeSeriesDataType.DOUBLE.equals(listTimeseries.get(0).getMetadata().getDataType())) {
             List<double[]> datadouble = new ArrayList<>();
             for (int i = 0; i < listTimeseries.size(); i++) {
                 // TODO timeseries raw type
                 datadouble.add(((DoubleTimeSeries) listTimeseries.get(i)).toArray());
             }
             stringOrDoubledataGetter = (row, col) -> datadouble.get(row)[col];
-        } else if (listTimeseries.get(0) instanceof StringTimeSeries) {
+        } else if (TimeSeriesDataType.STRING.equals(listTimeseries.get(0).getMetadata().getDataType())) {
             List<String[]> datastring = new ArrayList<>();
             for (int i = 0; i < listTimeseries.size(); i++) {
 
