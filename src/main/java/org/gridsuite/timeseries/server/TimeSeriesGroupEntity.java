@@ -25,16 +25,16 @@ import lombok.Setter;
 @Setter
 @Entity
 @Table(name = "timeseries_group")
-public class TimeseriesGroupEntity {
+public class TimeSeriesGroupEntity {
 
     // for hibernate
-    public TimeseriesGroupEntity() {
+    public TimeSeriesGroupEntity() {
         this.indexType = null;
         this.index = null;
         this.metadatas = null;
     }
 
-    public TimeseriesGroupEntity(String indexType, String index, String metadatas) {
+    public TimeSeriesGroupEntity(String indexType, String index, String metadatas) {
         this.indexType = indexType;
         this.index = index;
         this.metadatas = metadatas;

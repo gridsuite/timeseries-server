@@ -73,7 +73,7 @@ public class TimeSeriesIT {
 
     // TODO compare more than just the data
     // TODO more types
-    private void assertTimeseriesEquals(List<TimeSeries> tsRefs, String actual) {
+    private void assertTimeSeriesEquals(List<TimeSeries> tsRefs, String actual) {
         List<TimeSeries> tsGets = TimeSeries.parseJson(actual);
 
         assertEquals(tsRefs.size(), tsGets.size());
@@ -95,7 +95,7 @@ public class TimeSeriesIT {
     }
 
     // TODO try to simplify ?
-    private void assertTimeseriesMetadataEquals(List<TimeSeries> tsRef, String getMetadataJson) throws Exception {
+    private void assertTimeSeriesMetadataEquals(List<TimeSeries> tsRef, String getMetadataJson) throws Exception {
         Map<String, Object> getMetadatasParsed = mapper.readValue(getMetadataJson, Map.class);
         TimeSeriesIndex refIndex = tsRef.get(0).getMetadata().getIndex();
         assertEquals(refIndex.getType(), getMetadatasParsed.get("indexType"));
@@ -135,12 +135,12 @@ public class TimeSeriesIT {
         MvcResult resGet = mockMvc.perform(get("/v1/timeseries-group/{uuid}", createdUuid)).andExpect(status().isOk())
                 .andReturn();
         String getJson = resGet.getResponse().getContentAsString();
-        assertTimeseriesEquals(tsRef, getJson);
+        assertTimeSeriesEquals(tsRef, getJson);
 
         MvcResult resGetMetadata = mockMvc.perform(get("/v1/timeseries-group/{uuid}/metadata", createdUuid))
                 .andExpect(status().isOk()).andReturn();
         String getMetadataJson = resGetMetadata.getResponse().getContentAsString();
-        assertTimeseriesMetadataEquals(tsRef, getMetadataJson);
+        assertTimeSeriesMetadataEquals(tsRef, getMetadataJson);
 
         // TODO here if we try with 51 instead of 50 we get
         // Caused by: org.postgresql.util.PSQLException: ERROR: cannot pass more than 100 arguments to a function
@@ -149,11 +149,11 @@ public class TimeSeriesIT {
                 .stream().map(x -> Math.max(1, Math.min(50, x))).distinct().collect(Collectors.toList())) {
             Pair<List<TimeSeries>, String> pairCols = someCols(tsRef, n);
             String somecols = pairCols.getRight();
-            List<TimeSeries> someTimeseries = pairCols.getLeft();
+            List<TimeSeries> someTimeSeries = pairCols.getLeft();
             MvcResult resGetcol = mockMvc.perform(get("/v1/timeseries-group/{uuid}?col={col}", createdUuid, somecols))
                     .andExpect(status().isOk()).andReturn();
             String getColJson = resGetcol.getResponse().getContentAsString();
-            assertTimeseriesEquals(someTimeseries, getColJson);
+            assertTimeSeriesEquals(someTimeSeries, getColJson);
         }
 
         return createdUuid;

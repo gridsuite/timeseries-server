@@ -30,6 +30,29 @@ import com.powsybl.timeseries.TimeSeriesIndex;
 import com.powsybl.timeseries.TimeSeriesMetadata;
 
 /**
+ * This class provides methods to serialize and deserialize metadatas in json.
+ * <p>
+ * It it used to and from database storage, and to (not from) http clients for metadata only requests (from http clients, we only handle the case of a full upload (metadata + data) so we can directly use the parsing of powsybl)
+ * <p>
+ * For the index, because it is the same in all the time series, only one instance is in the json. For other metadatas, because they are different, this class provides methods to:
+ * <ul>
+ *   <li>gather individual metadatas from a list of time series and aggregate them in one central place</li>
+ *   <li>take the individual metadatas from this central place and apply them it to all the time series in the list</li>
+ * </ul>
+ * <p>
+ * The following methods work together:
+ * <ul>
+ *   <li>indexToJson and indexFromJson
+ *   <li>individualTimeSeriesMetadatasToJson and individualMetadatasListFromJson
+ *   <p>
+ *   Note: individualMetadatasListFromJson for now is very low level, a higher level
+ *   version is timeSeriesMetadataListFromJson which returns business objects,
+ *   or individualMetadatasMapFromJson which returns a map of map (instead of a list of maps).
+ *   getMetadata can be used to retrieve one business object from the map of map.
+ *   </li>
+ * <p>
+ * Finally, allMetadatasToJson does the partial export of the index and individual metadatas for http clients in one single json object.
+ *
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
  */
 //TODO temporary, will go away we we model metadata directly in the database
@@ -43,7 +66,7 @@ public class TimeSeriesMetadataService {
         this.objectMapper = objectMapper;
     }
 
-    public void writeIndex(TimeSeriesIndex index, JsonGenerator generator) {
+    private void writeIndex(TimeSeriesIndex index, JsonGenerator generator) {
         index.writeJson(generator);
     }
 
@@ -75,7 +98,7 @@ public class TimeSeriesMetadataService {
 
     // TODO proper modeling of metadatas
     // TODO this is a trimmed down version of TimeSeriesMetadata::writeJson
-    // with only the fields that we keep for each timeseries in the group
+    // with only the fields that we keep for each time series in the group
     private void writeOneIndividualMetadatas(TimeSeriesMetadata metadata, JsonGenerator generator) throws IOException {
         generator.writeStartObject();
 
@@ -101,14 +124,14 @@ public class TimeSeriesMetadataService {
         generator.writeEndArray();
     }
 
-    private void writeIndividualTimeSeriesMetadatas(List<TimeSeries> timeseries, JsonGenerator generator) throws IOException {
-        writeIndividualMetadatas(timeseries.stream().map(TimeSeries::getMetadata).collect(Collectors.toList()), generator);
+    private void writeIndividualTimeSeriesMetadatas(List<TimeSeries> timeSeriesList, JsonGenerator generator) throws IOException {
+        writeIndividualMetadatas(timeSeriesList.stream().map(TimeSeries::getMetadata).collect(Collectors.toList()), generator);
     }
 
-    public String individualTimeseriesMetadatasToJson(List<TimeSeries> timeseries) {
+    public String individualTimeSeriesMetadatasToJson(List<TimeSeries> timeSeriesList) {
         return JsonUtil.toJson(generator -> {
             try {
-                writeIndividualTimeSeriesMetadatas(timeseries, generator);
+                writeIndividualTimeSeriesMetadatas(timeSeriesList, generator);
             } catch (IOException e) {
                 throw new RuntimeException("Error serializing metadatas", e);
             }
@@ -116,7 +139,7 @@ public class TimeSeriesMetadataService {
     }
 
     // we use objectMapper directly but should we avoid it ?
-    public List<Map<String, Object>> individualMetadatasListFromJson(String metadatas) {
+    private List<Map<String, Object>> individualMetadatasListFromJson(String metadatas) {
         try {
             return objectMapper.readValue(metadatas, List.class);
         } catch (JsonProcessingException e) {
@@ -147,7 +170,7 @@ public class TimeSeriesMetadataService {
         return timeSeriesMetadataFromParsed(index, individualMetadata);
     }
 
-    public List<TimeSeriesMetadata> timeseriesMetadataListFromJson(
+    public List<TimeSeriesMetadata> timeSeriesMetadataListFromJson(
             TimeSeriesIndex index,
             String individualMetadatasJson) {
         return individualMetadatasListFromJson(individualMetadatasJson).stream()

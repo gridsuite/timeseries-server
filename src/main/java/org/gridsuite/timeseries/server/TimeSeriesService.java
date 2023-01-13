@@ -28,10 +28,10 @@ import com.powsybl.timeseries.TimeSeriesMetadata;
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
  */
 @Service
-public class TimeseriesService {
+public class TimeSeriesService {
 
-    private final TimeseriesGroupRepository timeseriesGroupRepository;
-    private final TimeseriesDataRepository timeseriesDataRepository;
+    private final TimeSeriesGroupRepository timeseriesGroupRepository;
+    private final TimeSeriesDataRepository timeseriesDataRepository;
     private final TimeSeriesMetadataService timeseriesMetadataService;
 
     // TODO to remove when metadata are properly modeled
@@ -43,8 +43,8 @@ public class TimeseriesService {
                 .collect(Collectors.toList());
     }
 
-    public TimeseriesService(TimeseriesGroupRepository timeseriesGroupRepository,
-            TimeseriesDataRepository timeseriesDataRepository, TimeSeriesMetadataService timeseriesMetadataService,
+    public TimeSeriesService(TimeSeriesGroupRepository timeseriesGroupRepository,
+            TimeSeriesDataRepository timeseriesDataRepository, TimeSeriesMetadataService timeseriesMetadataService,
             ObjectMapper objectMapper) {
         this.timeseriesGroupRepository = timeseriesGroupRepository;
         this.timeseriesDataRepository = timeseriesDataRepository;
@@ -77,24 +77,24 @@ public class TimeseriesService {
         TimeSeriesIndex index = timeseries.get(0).getMetadata().getIndex();
         String indexType = index.getType();
         String indexJson = timeseriesMetadataService.indexToJson(index);
-        String metadatasJson = timeseriesMetadataService.individualTimeseriesMetadatasToJson(timeseries);
+        String metadatasJson = timeseriesMetadataService.individualTimeSeriesMetadatasToJson(timeseries);
 
-        TimeseriesGroupEntity tsGroup = timeseriesGroupRepository.save(new TimeseriesGroupEntity(indexType, indexJson, metadatasJson));
+        TimeSeriesGroupEntity tsGroup = timeseriesGroupRepository.save(new TimeSeriesGroupEntity(indexType, indexJson, metadatasJson));
         timeseriesDataRepository.save(tsGroup.getId(), timeseries);
         return tsGroup.getId();
     }
 
     @Transactional
     public String getTimeseriesGroupMetadataJson(UUID uuid) {
-        TimeseriesGroupEntity timeseriesGroupEntity = timeseriesGroupRepository.findById(uuid).orElseThrow();
+        TimeSeriesGroupEntity timeseriesGroupEntity = timeseriesGroupRepository.findById(uuid).orElseThrow();
         TimeSeriesIndex index = timeseriesMetadataService.indexFromJson(timeseriesGroupEntity.getIndexType(), timeseriesGroupEntity.getIndex());
-        List<TimeSeriesMetadata> metadatas = timeseriesMetadataService.timeseriesMetadataListFromJson(index, timeseriesGroupEntity.getMetadatas());
+        List<TimeSeriesMetadata> metadatas = timeseriesMetadataService.timeSeriesMetadataListFromJson(index, timeseriesGroupEntity.getMetadatas());
         return timeseriesMetadataService.allMetadatasToJson(timeseriesGroupEntity.getId(), index, metadatas);
     }
 
     @Transactional
     public List<TimeSeries> getTimeseriesGroup(UUID uuid, boolean tryToCompress, String time, List<String> col) {
-        TimeseriesGroupEntity tsGroup = timeseriesGroupRepository.findById(uuid).orElseThrow();
+        TimeSeriesGroupEntity tsGroup = timeseriesGroupRepository.findById(uuid).orElseThrow();
         TimeSeriesIndex index = timeseriesMetadataService.indexFromJson(tsGroup.getIndexType(), tsGroup.getIndex());
         Map<String, Object> individualMetadatas = timeseriesMetadataService
                 .individualMetadatasMapFromJson(tsGroup.getMetadatas());

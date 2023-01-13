@@ -34,12 +34,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @RestController
 @RequestMapping(value = "/v1")
 @Tag(name = "Timeseries server")
-public class TimeseriesController {
+public class TimeSeriesController {
 
-    private final TimeseriesService timeseriesService;
+    private final TimeSeriesService timeSeriesService;
 
-    public TimeseriesController(TimeseriesService timeseriesService) {
-        this.timeseriesService = timeseriesService;
+    public TimeSeriesController(TimeSeriesService timeSeriesService) {
+        this.timeSeriesService = timeSeriesService;
     }
 
     @GetMapping(value = "/timeseries-group")
@@ -47,7 +47,7 @@ public class TimeseriesController {
     @ApiResponses(value = { @ApiResponse(responseCode = "200", description = "The list of timeseries groups ids") })
     public ResponseEntity<List<Map<String, UUID>>> getTimeseriesGroupsIds() {
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
-                .body(timeseriesService.getTimeseriesGroupsIds());
+                .body(timeSeriesService.getTimeseriesGroupsIds());
     }
 
     @PostMapping(value = "/timeseries-group")
@@ -56,12 +56,12 @@ public class TimeseriesController {
     //TODO better interface with springboot's objectmapper using the timeseries jackson in powsybl ?
     public Map<String, Object> createTimeseriesGroup(@RequestBody String timeseries) {
         List<TimeSeries> list = TimeSeries.parseJson(timeseries);
-        return Map.of("id", timeseriesService.createTimeseriesGroup(list));
+        return Map.of("id", timeSeriesService.createTimeseriesGroup(list));
     }
 
     @GetMapping(value = "/timeseries-group/{uuid}/metadata")
     public String getTimeseriesGroupMetadata(@PathVariable UUID uuid) {
-        return timeseriesService.getTimeseriesGroupMetadataJson(uuid);
+        return timeSeriesService.getTimeseriesGroupMetadataJson(uuid);
     }
 
     @GetMapping(value = "/timeseries-group/{uuid}")
@@ -74,7 +74,7 @@ public class TimeseriesController {
         @RequestParam(required = false) String time,
         @RequestParam(required = false) List<String> col
     ) {
-        List<TimeSeries> list = timeseriesService.getTimeseriesGroup(uuid, tryToCompress, time, col);
+        List<TimeSeries> list = timeSeriesService.getTimeseriesGroup(uuid, tryToCompress, time, col);
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(TimeSeries.toJson(list));
     }
 
@@ -84,6 +84,6 @@ public class TimeseriesController {
     public void deleteTimeseriesGroup(
         @PathVariable UUID uuid
     ) {
-        timeseriesService.deleteTimeseriesGroup(uuid);
+        timeSeriesService.deleteTimeseriesGroup(uuid);
     }
 }

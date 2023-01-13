@@ -15,11 +15,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  */
 @SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 @SpringBootApplication
-public class TimeseriesApplication {
+public class TimeSeriesApplication {
 
     public static void main(String[] args) {
         Utils.initProperties();
-        SpringApplication.run(TimeseriesApplication.class, args);
+        SpringApplication.run(TimeSeriesApplication.class, args);
     }
 
 }

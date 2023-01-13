@@ -39,9 +39,9 @@ import com.zaxxer.hikari.HikariDataSource;
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
  */
 @Repository
-public class TimeseriesDataRepository {
+public class TimeSeriesDataRepository {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(TimeseriesDataRepository.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(TimeSeriesDataRepository.class);
 
     private static final String INSERT = "insert into timeseries_group_data ( group_id, time, json_obj ) values (?,?,?);";
     private static final String COUNT = "select count(*) from timeseries_group_data where group_id=?;";
@@ -66,7 +66,7 @@ public class TimeseriesDataRepository {
     private final HikariDataSource datasource;
     private final TimeSeriesMetadataService timeseriesMetadataService;
 
-    public TimeseriesDataRepository(ObjectMapper objectMapper, HikariDataSource datasource,
+    public TimeSeriesDataRepository(ObjectMapper objectMapper, HikariDataSource datasource,
             TimeSeriesMetadataService timeseriesMetadataService) {
         this.objectMapper = objectMapper;
         this.datasource = datasource;
