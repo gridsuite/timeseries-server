@@ -203,14 +203,14 @@ public class TimeSeriesDataRepository {
 
     public List<TimeSeries> findById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> col) {
         try {
-            return dofindById(index, individualMetadatas, uuid, tryToCompress, time, col);
+            return doFindById(index, individualMetadatas, uuid, tryToCompress, time, col);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
     // TODO untangle multithreaded scatter/gather from actual work
-    private List<TimeSeries> dofindById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> col) throws Exception {
+    private List<TimeSeries> doFindById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> col) throws Exception {
         long a = System.nanoTime();
         int cnt = -1;
         //TODO maintain this as a separate metadata instead of select count(*) when requesting all rows ?
