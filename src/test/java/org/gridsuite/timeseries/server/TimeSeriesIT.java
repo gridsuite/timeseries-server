@@ -43,6 +43,7 @@ import com.powsybl.timeseries.TimeSeriesDataType;
 import com.powsybl.timeseries.TimeSeriesIndex;
 import com.powsybl.timeseries.TimeSeriesMetadata;
 import com.powsybl.timeseries.UncompressedDoubleDataChunk;
+import com.powsybl.timeseries.UncompressedStringDataChunk;
 
 /**
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
@@ -210,6 +211,24 @@ public class TimeSeriesIT {
                 status().isOk(),
                 content().json("[]")
         );
+
+        List<TimeSeries> tsRefStringMissing = List.of(
+                TimeSeries.createString("missingall", irregularIndex),
+                new StringTimeSeries(new TimeSeriesMetadata("missingsomelast", TimeSeriesDataType.STRING, irregularIndex), List.of(new UncompressedStringDataChunk(0, new String[] {"two"}))),
+                TimeSeries.createString("full", irregularIndex, "five", "six", "seven")
+            );
+
+        String createdUuidStringMissing = testCreateGetTs(tsRefStringMissing);
+        mockMvc.perform(delete("/v1/timeseries-group/{uuid}", createdUuidStringMissing)).andExpect(status().isOk());
+
+        List<TimeSeries> tsRefDoubleMissing = List.of(
+            TimeSeries.createDouble("missingall", irregularIndex),
+            new StoredDoubleTimeSeries(new TimeSeriesMetadata("missingsomelast", TimeSeriesDataType.DOUBLE, irregularIndex), List.of(new UncompressedDoubleDataChunk(0, new double[] {2d}))),
+            TimeSeries.createDouble("full", irregularIndex, 5d, 6d, 7d)
+        );
+
+        String createdUuidDoubleMissing = testCreateGetTs(tsRefDoubleMissing);
+        mockMvc.perform(delete("/v1/timeseries-group/{uuid}", createdUuidDoubleMissing)).andExpect(status().isOk());
 
         List<TimeSeries> tsRef3 = List.of(
             TimeSeries.createString("first", regularIndex, "two", "three", "four"),

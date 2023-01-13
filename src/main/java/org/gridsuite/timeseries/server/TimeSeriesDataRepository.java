@@ -119,7 +119,11 @@ public class TimeSeriesDataRepository {
                 // TODO timeseries raw type
                 datadouble.add(((DoubleTimeSeries) listTimeseries.get(i)).toArray());
             }
-            stringOrDoubledataGetter = (row, col) -> datadouble.get(row)[col];
+            stringOrDoubledataGetter = (row, col) -> {
+                double d = datadouble.get(row)[col];
+                //NaN is not valid JSON, serialize as null
+                return Double.isNaN(d) ? null : d;
+            };
         } else if (TimeSeriesDataType.STRING.equals(listTimeseries.get(0).getMetadata().getDataType())) {
             List<String[]> datastring = new ArrayList<>();
             for (int i = 0; i < listTimeseries.size(); i++) {
@@ -297,8 +301,8 @@ public class TimeSeriesDataRepository {
             TimeSeriesMetadata metadata = timeseriesMetadataService.getMetadata(index, individualMetadatas, entry.getKey());
             // TODO remove duplication
             if (TimeSeriesDataType.DOUBLE.equals(metadata.getDataType())) {
-                double[] doubles = entry.getValue().stream().map(Double.class::cast).mapToDouble(Double::doubleValue)
-                        .toArray();
+                double[] doubles = entry.getValue().stream().map(Double.class::cast)
+                        .mapToDouble(d -> d == null ? Double.NaN : d).toArray();
 
                 // TODO should be in the timeseries API ?
                 DoubleDataChunk ddc = new UncompressedDoubleDataChunk(0, doubles);
