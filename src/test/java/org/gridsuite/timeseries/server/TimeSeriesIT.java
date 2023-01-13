@@ -181,8 +181,8 @@ public class TimeSeriesIT {
 
         IrregularTimeSeriesIndex irregularIndex = new IrregularTimeSeriesIndex(new long[] {0, 1, 2 });
         List<TimeSeries> tsRef2 = List.of(
-            TimeSeries.createDouble("first", regularIndex, 2d, 3d, 4d),
-            TimeSeries.createDouble("second", regularIndex, 5d, 6d, 7d)
+            TimeSeries.createDouble("first", irregularIndex, 2d, 3d, 4d),
+            TimeSeries.createDouble("second", irregularIndex, 5d, 6d, 7d)
         );
 
         String createdUuid2 = testCreateGetTs(tsRef2);
