@@ -32,6 +32,7 @@ import com.powsybl.timeseries.StringTimeSeries;
 import com.powsybl.timeseries.TimeSeries;
 import com.powsybl.timeseries.TimeSeriesDataType;
 import com.powsybl.timeseries.TimeSeriesIndex;
+import com.powsybl.timeseries.TimeSeriesMetadata;
 import com.powsybl.timeseries.UncompressedDoubleDataChunk;
 import com.powsybl.timeseries.UncompressedStringDataChunk;
 import com.zaxxer.hikari.HikariDataSource;
@@ -293,8 +294,9 @@ public class TimeSeriesDataRepository {
         }
         List<TimeSeries> ret = new ArrayList<>();
         for (Map.Entry<String, List<Object>> entry : data.entrySet()) {
+            TimeSeriesMetadata metadata = timeseriesMetadataService.getMetadata(index, individualMetadatas, entry.getKey());
             // TODO remove duplication
-            if (entry.getValue().get(0) instanceof Double) {
+            if (TimeSeriesDataType.DOUBLE.equals(metadata.getDataType())) {
                 double[] doubles = entry.getValue().stream().map(Double.class::cast).mapToDouble(Double::doubleValue)
                         .toArray();
 
@@ -306,9 +308,9 @@ public class TimeSeriesDataRepository {
                 }
                 // TODO more types
                 // TODO index from client
-                TimeSeries timeseries = new StoredDoubleTimeSeries(timeseriesMetadataService.getMetadata(index, individualMetadatas, entry.getKey()), List.of(ddc));
+                TimeSeries timeseries = new StoredDoubleTimeSeries(metadata, List.of(ddc));
                 ret.add(timeseries);
-            } else if (entry.getValue().get(0) instanceof String) {
+            } else if (TimeSeriesDataType.STRING.equals(metadata.getDataType())) {
                 String[] strings = entry.getValue().toArray(new String[0]);
 
                 // TODO should be in the timeseries API ?
@@ -319,7 +321,7 @@ public class TimeSeriesDataRepository {
                 }
                 // TODO more types
                 // TODO index from client
-                TimeSeries timeseries = new StringTimeSeries(timeseriesMetadataService.getMetadata(index, individualMetadatas, entry.getKey()), List.of(ddc));
+                TimeSeries timeseries = new StringTimeSeries(metadata, List.of(ddc));
                 ret.add(timeseries);
             } else {
                 throw new RuntimeException("Unsupported read of timeseries type" + entry.getValue().get(0).getClass());
