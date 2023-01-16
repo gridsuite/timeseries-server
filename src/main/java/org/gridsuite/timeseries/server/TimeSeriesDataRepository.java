@@ -112,6 +112,10 @@ public class TimeSeriesDataRepository {
         // data from the client to the database, the server has to buffer in memory.
         // try to change the API to allow streaming.
         // TODO avoid copying the data (timeseries toArray())?
+        // TODO, using toArray() doesn't allow to know if the client has missing data
+        // at the end of the time series in the json. For example, [1,2,3, NaN] or [1,2,3] both
+        // return the same toArray() of {1,2,3, Double.NaN}. For Strings, it's {"foo", "bar", null}.
+        // This can have a big impact for a timeseries with only missing data ( [] vs [null,null, ..., null]
         BiFunction<Integer, Integer, Object> stringOrDoubledataGetter;
         if (TimeSeriesDataType.DOUBLE.equals(listTimeseries.get(0).getMetadata().getDataType())) {
             List<double[]> datadouble = new ArrayList<>();
