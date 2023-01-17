@@ -29,9 +29,7 @@ public class TimeSeriesGroupEntity {
 
     // for hibernate
     public TimeSeriesGroupEntity() {
-        this.indexType = null;
-        this.index = null;
-        this.metadatas = null;
+        this(null, null, null);
     }
 
     public TimeSeriesGroupEntity(String indexType, String index, String metadatas) {
