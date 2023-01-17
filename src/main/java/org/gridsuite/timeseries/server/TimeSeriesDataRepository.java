@@ -17,7 +17,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,25 +43,6 @@ import com.zaxxer.hikari.HikariDataSource;
 public class TimeSeriesDataRepository {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TimeSeriesDataRepository.class);
-
-    private static final String INSERT = "insert into timeseries_group_data ( group_id, time, json_obj ) values (?,?,?);";
-    private static final String COUNT = "select count(*) from timeseries_group_data where group_id=?;";
-    private static final String SELECTALL = "select time, json_obj from timeseries_group_data where group_id=? and time>=? and time <? order by time;";
-    private static final String DELETE = "delete from timeseries_group_data where group_id=?";
-
-    private String makeSelectAll(List<String> timeSeriesNames) {
-        //TODO validate timeSeriesName sql injection
-        //filter on time series names ( select time, json_build_object ('a', json_obj->'a', 'd', json_obj->'d', 'e', json_obj->'e'), ...  instead of the whole json_obj)
-        if (timeSeriesNames == null || timeSeriesNames.isEmpty()) {
-            return SELECTALL;
-        } else {
-            // TODO here if we try with 51 time series names we get an exception
-            // Caused by: org.postgresql.util.PSQLException: ERROR: cannot pass more than 100 arguments to a function
-            return timeSeriesNames.stream().map(c -> "'" + c + "', json_obj->'" + c + "'").collect(Collectors.joining(", ",
-                    "select time, json_build_object (",
-                    ") json_obj from timeseries_group_data where group_id=? and time>=? and time <? order by time;"));
-        }
-    }
 
     private final ObjectMapper objectMapper;
     private final HikariDataSource datasource;
@@ -145,7 +125,7 @@ public class TimeSeriesDataRepository {
                 try (var conn = datasource.getConnection();
                 ) {
                     conn.setAutoCommit(false);
-                    try (var ps = conn.prepareStatement(INSERT);) {
+                    try (var ps = conn.prepareStatement(TimeSeriesDataQueryCatalog.INSERT);) {
 
                         int threadrowstart = iCopy * threadbatches * batchrow;
                         int remainingrows = rowcount % (threadbatches * batchrow);
@@ -220,7 +200,7 @@ public class TimeSeriesDataRepository {
         //TODO maintain this as a separate metadata instead of select count(*) when requesting all rows ?
         //TODO maintain an estimated col count as metadata instead of just guessing when requesting all cols ?
         try (var connection = datasource.getConnection();
-             var ps = connection.prepareStatement(COUNT);) {
+             var ps = connection.prepareStatement(TimeSeriesDataQueryCatalog.COUNT);) {
             ps.setObject(1, uuid);
             try (var resultSet = ps.executeQuery();) {
                 if (resultSet.next()) {
@@ -245,7 +225,8 @@ public class TimeSeriesDataRepository {
                 // because we can then do aggregates (min, max, mean, kpercentile) etc in compatible subgroups
                 // this is only useful if subgroups overlap, otherwise you can just create separate groups
                 //     var ps = connection.prepareStatement("select  sim_time,  from simulations_10 where group_id=? and and sim_time >= ? and sim_time < ?;");
-                     var ps = connection.prepareStatement(makeSelectAll(timeSeriesNames));
+                     var ps = connection.prepareStatement(
+                        TimeSeriesDataQueryCatalog.makeSelect(timeSeriesNames));
                 ) {
                     ps.setObject(1, uuid);
                     // TODO instants/durations ?
@@ -340,7 +321,7 @@ public class TimeSeriesDataRepository {
 
     private void doDelete(UUID uuid) throws Exception {
         try (var conn = datasource.getConnection();
-                var ps = conn.prepareStatement(DELETE);
+                var ps = conn.prepareStatement(TimeSeriesDataQueryCatalog.DELETE);
            ) {
             ps.setObject(1, uuid);
             ps.executeUpdate();
