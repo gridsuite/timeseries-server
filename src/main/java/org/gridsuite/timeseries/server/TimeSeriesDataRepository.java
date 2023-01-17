@@ -20,6 +20,7 @@ import java.util.function.BiFunction;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -57,9 +58,12 @@ public class TimeSeriesDataRepository {
 
     // TODO tune these parameters for performance
     // TODO make these parameters in application.yaml
-    private static final int WRITE_BATCHSIZE = 30000;
-    private static final int WRITE_THREADSIZE = 3; // 3 batches => e.g. 300 rows of 300 cols
-    private static final int READ_THREADSIZE = 300; // 300 db rows, TODO take the number of cols into account
+    @Value("${timeseries.write-batch-size:30000}")
+    private int writebatchsize;
+    @Value("${timeseries.write-thread-size:3}")
+    private int writethreadsize; // 3 batches => e.g. 300 rows of 300 cols
+    @Value("${timeseries.read-thread-size:300}")
+    private int readthreadsize; // 300 db rows, TODO take the number of cols into account
 
     public void save(UUID uuid, List<TimeSeries> listTimeseries) {
         try {
@@ -75,10 +79,10 @@ public class TimeSeriesDataRepository {
         int colcount = listTimeseries.size();
         int rowcount = listTimeseries.get(0).getMetadata().getIndex().getPointCount();
 
-        int batchrow = (WRITE_BATCHSIZE + colcount - 1) / colcount;
+        int batchrow = (writebatchsize + colcount - 1) / colcount;
         int batchcount = (rowcount + batchrow - 1) / batchrow;
 
-        int threadcount = (batchcount + WRITE_THREADSIZE - 1) / WRITE_THREADSIZE;
+        int threadcount = (batchcount + writethreadsize - 1) / writethreadsize;
         int threadbatches = (batchcount + threadcount - 1) / threadcount;
 
         List<Callable<Void>> callables = new ArrayList<>(Collections.nCopies(threadcount, null));
@@ -209,12 +213,12 @@ public class TimeSeriesDataRepository {
             }
         }
         long b = System.nanoTime();
-        int threadcount = (cnt + READ_THREADSIZE - 1) / READ_THREADSIZE;
+        int threadcount = (cnt + readthreadsize - 1) / readthreadsize;
         List<Callable<Map<Object, Object>>> callables = new ArrayList<>(Collections.nCopies(threadcount, null));
         for (int i = 0; i < threadcount; i++) {
             int iCopy = i;
-            int threadrowstart = iCopy * READ_THREADSIZE;
-            int threadrowend = (iCopy + 1) * READ_THREADSIZE;
+            int threadrowstart = iCopy * readthreadsize;
+            int threadrowend = (iCopy + 1) * readthreadsize;
             callables.set(i, () -> {
                 Map<Object, Object> threadres = new LinkedHashMap<>();
                 try (var connection = datasource.getConnection();
