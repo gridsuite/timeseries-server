@@ -101,7 +101,7 @@ public class TimeSeriesDataRepository {
         // return the same toArray() of {1,2,3, Double.NaN}. For Strings, it's {"foo", "bar", null}.
         // This can have a big impact for a timeseries with only missing data ( [] vs [null,null, ..., null]
         BiFunction<Integer, Integer, Object> stringOrDoubledataGetter;
-        if (TimeSeriesDataType.DOUBLE.equals(listTimeseries.get(0).getMetadata().getDataType())) {
+        if (TimeSeriesDataType.DOUBLE == listTimeseries.get(0).getMetadata().getDataType()) {
             List<double[]> datadouble = new ArrayList<>();
             for (int i = 0; i < listTimeseries.size(); i++) {
                 // TODO timeseries raw type
@@ -112,7 +112,7 @@ public class TimeSeriesDataRepository {
                 //NaN is not valid JSON, serialize as null
                 return Double.isNaN(d) ? null : d;
             };
-        } else if (TimeSeriesDataType.STRING.equals(listTimeseries.get(0).getMetadata().getDataType())) {
+        } else if (TimeSeriesDataType.STRING == listTimeseries.get(0).getMetadata().getDataType()) {
             List<String[]> datastring = new ArrayList<>();
             for (int i = 0; i < listTimeseries.size(); i++) {
 
@@ -289,7 +289,7 @@ public class TimeSeriesDataRepository {
         for (Map.Entry<String, List<Object>> entry : data.entrySet()) {
             TimeSeriesMetadata metadata = timeseriesMetadataService.getMetadata(index, individualMetadatas, entry.getKey());
             // TODO remove duplication
-            if (TimeSeriesDataType.DOUBLE.equals(metadata.getDataType())) {
+            if (TimeSeriesDataType.DOUBLE == metadata.getDataType()) {
                 double[] doubles = entry.getValue().stream().map(Double.class::cast)
                         .mapToDouble(d -> d == null ? Double.NaN : d).toArray();
 
@@ -303,7 +303,7 @@ public class TimeSeriesDataRepository {
                 // TODO index from client
                 TimeSeries timeseries = new StoredDoubleTimeSeries(metadata, List.of(ddc));
                 ret.add(timeseries);
-            } else if (TimeSeriesDataType.STRING.equals(metadata.getDataType())) {
+            } else if (TimeSeriesDataType.STRING == metadata.getDataType()) {
                 String[] strings = entry.getValue().toArray(new String[0]);
 
                 // TODO should be in the timeseries API ?

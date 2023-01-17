@@ -78,14 +78,14 @@ public class TimeSeriesIT {
         List<TimeSeries> tsGets = TimeSeries.parseJson(actual);
 
         assertEquals(tsRefs.size(), tsGets.size());
-        if (TimeSeriesDataType.DOUBLE.equals(tsRefs.get(0).getMetadata().getDataType())) {
+        if (TimeSeriesDataType.DOUBLE == tsRefs.get(0).getMetadata().getDataType()) {
             for (int i = 0; i < tsRefs.size(); i++) {
                 StoredDoubleTimeSeries tsRef = (StoredDoubleTimeSeries) tsRefs.get(i);
                 StoredDoubleTimeSeries tsGet = (StoredDoubleTimeSeries) tsGets.get(i);
                 assertArrayEquals(tsRef.toArray(), tsGet.toArray(), 0);
                 assertEquals(tsRef.getMetadata(), tsGet.getMetadata());
             }
-        } else if (TimeSeriesDataType.STRING.equals(tsRefs.get(0).getMetadata().getDataType())) {
+        } else if (TimeSeriesDataType.STRING == tsRefs.get(0).getMetadata().getDataType()) {
             for (int i = 0; i < tsRefs.size(); i++) {
                 StringTimeSeries tsRef = (StringTimeSeries) tsRefs.get(i);
                 StringTimeSeries tsGet = (StringTimeSeries) tsGets.get(i);
