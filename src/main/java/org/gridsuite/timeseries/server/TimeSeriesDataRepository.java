@@ -85,13 +85,13 @@ public class TimeSeriesDataRepository {
         int batchcount = (rowcount + batchrow - 1) / batchrow;
 
         int threadcount = (batchcount + writethreadsize - 1) / writethreadsize;
-        int threadbatches = (batchcount + threadcount - 1) / threadcount;
+        int batchinthread = (batchcount + threadcount - 1) / threadcount;
 
         List<Callable<Void>> callables = new ArrayList<>(Collections.nCopies(threadcount, null));
 
         LOGGER.debug(
-                "insert {} in batch of {} rows ({} doubles for each batch), numbatch={}, numthreads={}, threadbatches={}",
-                uuid, batchrow, batchrow * colcount, batchcount, threadcount, threadbatches);
+                "insert start {} : {} instants by {} time series, in batch of {} rows ({} doubles for each batch), numbatch={}, numthreads={}, batchinthread={}",
+                uuid, rowcount, colcount, batchrow, batchrow * colcount, batchcount, threadcount, batchinthread);
         Stopwatch stopwatch = Stopwatch.createStarted();
 
         // TODO here we transpose, which means it's impossible to stream
@@ -133,10 +133,10 @@ public class TimeSeriesDataRepository {
                     conn.setAutoCommit(false);
                     try (var ps = conn.prepareStatement(TimeSeriesDataQueryCatalog.INSERT);) {
 
-                        int threadrowstart = iCopy * threadbatches * batchrow;
-                        int remainingrows = rowcount % (threadbatches * batchrow);
+                        int threadrowstart = iCopy * batchinthread * batchrow;
+                        int remainingrows = rowcount % (batchinthread * batchrow);
                         int threadrowcount = iCopy == threadcount - 1 && remainingrows > 0 ? remainingrows
-                                : threadbatches * batchrow;
+                                : batchinthread * batchrow;
                         for (int l = 0; l < threadrowcount; l++) {
                             int row = threadrowstart + l;
                             Map<String, Object> tsdata = new HashMap<>();
@@ -175,7 +175,7 @@ public class TimeSeriesDataRepository {
         if (threadcount > 1) {
             List<ForkJoinTask<Void>> tasks = new ArrayList<>(Collections.nCopies(threadcount, null));
             int size = datasource.getMaximumPoolSize();
-            LOGGER.debug("Starting inserts in forkjoinpool size={}", size);
+            LOGGER.debug("insert in forkjoinpool size={}", size);
             ForkJoinPool pool = new ForkJoinPool(size);
             for (int i = 0; i < threadcount; i++) {
                 tasks.set(i, pool.submit(callables.get(i)));
@@ -184,11 +184,11 @@ public class TimeSeriesDataRepository {
                 tasks.get(i).get();
             }
         } else {
-            LOGGER.debug("Starting inserts in http thread");
+            LOGGER.debug("insert in http thread");
             callables.get(0).call();
         }
         long b = System.nanoTime();
-        LOGGER.debug("inserted {} took: {}ms", uuid, stopwatch.elapsed(TimeUnit.MILLISECONDS));
+        LOGGER.debug("insert done {}, took {}ms", uuid, stopwatch.elapsed(TimeUnit.MILLISECONDS));
     }
 
     public List<TimeSeries> findById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> timeSeriesNames) {
@@ -202,6 +202,10 @@ public class TimeSeriesDataRepository {
     // TODO untangle multithreaded scatter/gather from actual work
     private List<TimeSeries> doFindById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> timeSeriesNames) throws Exception {
         Stopwatch stopwatch = Stopwatch.createStarted();
+
+        LOGGER.debug("select start {}, {} instants by {}/{} time series, in batch of {} rows", uuid, index.getPointCount(),
+                timeSeriesNames != null ? Integer.toString(timeSeriesNames.size()) : "all", individualMetadatas.size(), readthreadsize);
+
         int cnt = -1;
         //TODO maintain this as a separate metadata instead of select count(*) when requesting all rows ?
         //TODO maintain an estimated col count as metadata instead of just guessing when requesting all cols ?
@@ -255,7 +259,7 @@ public class TimeSeriesDataRepository {
         if (threadcount > 1) {
             List<ForkJoinTask<Map<Object, Object>>> tasks = new ArrayList<>(Collections.nCopies(threadcount, null));
             int size = datasource.getMaximumPoolSize();
-            LOGGER.debug("Starting selects in forkjoinpool size={}", size);
+            LOGGER.debug("select in forkjoinpool size={}", size);
             ForkJoinPool pool = new ForkJoinPool(size);
             for (int i = 0; i < threadcount; i++) {
                 tasks.set(i, pool.submit(callables.get(i)));
@@ -267,13 +271,13 @@ public class TimeSeriesDataRepository {
                 res.putAll(tasks.get(i).get());
             }
         } else {
-            LOGGER.debug("Starting inserts in http thread");
+            LOGGER.debug("select in http thread");
             res = callables.get(0).call();
         }
         long stopwatchReadElapsed = stopwatch.elapsed(TimeUnit.MILLISECONDS);
         long stopwatchQueriesElapsed = stopwatchReadElapsed - stopwatchCountElapsed;
-        LOGGER.debug("read {} took {}ms (count {}ms, {} queries in {} threads {}ms)", uuid, stopwatchReadElapsed,
-                stopwatchCountElapsed, cnt, threadcount, stopwatchQueriesElapsed);
+        LOGGER.debug("select done, {} took {}ms (count {}ms, query {}ms ({} rows in {} threads of {} each))", uuid, stopwatchReadElapsed,
+                stopwatchCountElapsed, stopwatchQueriesElapsed, cnt, threadcount, readthreadsize);
 
         // TODO same as save, avoid the transpose to allow stream from database to
         // clients ?
