@@ -16,6 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 
 import org.slf4j.Logger;
@@ -24,6 +25,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Stopwatch;
 import com.powsybl.timeseries.DoubleDataChunk;
 import com.powsybl.timeseries.DoubleTimeSeries;
 import com.powsybl.timeseries.StoredDoubleTimeSeries;
@@ -90,7 +92,7 @@ public class TimeSeriesDataRepository {
         LOGGER.debug(
                 "insert {} in batch of {} rows ({} doubles for each batch), numbatch={}, numthreads={}, threadbatches={}",
                 uuid, batchrow, batchrow * colcount, batchcount, threadcount, threadbatches);
-        long a = System.nanoTime();
+        Stopwatch stopwatch = Stopwatch.createStarted();
 
         // TODO here we transpose, which means it's impossible to stream
         // data from the client to the database, the server has to buffer in memory.
@@ -186,7 +188,7 @@ public class TimeSeriesDataRepository {
             callables.get(0).call();
         }
         long b = System.nanoTime();
-        LOGGER.debug("inserted {} took: {}ms", uuid, (b - a) / 1000000);
+        LOGGER.debug("inserted {} took: {}ms", uuid, stopwatch.elapsed(TimeUnit.MILLISECONDS));
     }
 
     public List<TimeSeries> findById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> timeSeriesNames) {
@@ -199,7 +201,7 @@ public class TimeSeriesDataRepository {
 
     // TODO untangle multithreaded scatter/gather from actual work
     private List<TimeSeries> doFindById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> timeSeriesNames) throws Exception {
-        long a = System.nanoTime();
+        Stopwatch stopwatch = Stopwatch.createStarted();
         int cnt = -1;
         //TODO maintain this as a separate metadata instead of select count(*) when requesting all rows ?
         //TODO maintain an estimated col count as metadata instead of just guessing when requesting all cols ?
@@ -212,7 +214,7 @@ public class TimeSeriesDataRepository {
                 }
             }
         }
-        long b = System.nanoTime();
+        long stopwatchCountElapsed = stopwatch.elapsed(TimeUnit.MILLISECONDS);
         int threadcount = (cnt + readthreadsize - 1) / readthreadsize;
         List<Callable<Map<Object, Object>>> callables = new ArrayList<>(Collections.nCopies(threadcount, null));
         for (int i = 0; i < threadcount; i++) {
@@ -268,9 +270,10 @@ public class TimeSeriesDataRepository {
             LOGGER.debug("Starting inserts in http thread");
             res = callables.get(0).call();
         }
-        long c = System.nanoTime();
-        LOGGER.debug("read {} took {}ms (count {}ms, {} queries in {} threads {}ms)", uuid, (c - a) / 1000000,
-                (b - a) / 1000000, cnt, threadcount, (c - b) / 1000000);
+        long stopwatchReadElapsed = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+        long stopwatchQueriesElapsed = stopwatchReadElapsed - stopwatchCountElapsed;
+        LOGGER.debug("read {} took {}ms (count {}ms, {} queries in {} threads {}ms)", uuid, stopwatchReadElapsed,
+                stopwatchCountElapsed, cnt, threadcount, stopwatchQueriesElapsed);
 
         // TODO same as save, avoid the transpose to allow stream from database to
         // clients ?

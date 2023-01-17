@@ -90,6 +90,10 @@
     <dependencies>
         <!-- Compilation dependencies -->
         <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.powsybl</groupId>
             <artifactId>powsybl-time-series-api</artifactId>
         </dependency>
