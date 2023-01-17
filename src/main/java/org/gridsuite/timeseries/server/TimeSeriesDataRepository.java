@@ -83,14 +83,14 @@ public class TimeSeriesDataRepository {
 
     public void save(UUID uuid, List<TimeSeries> listTimeseries) {
         try {
-            dosave(uuid, listTimeseries);
+            doSave(uuid, listTimeseries);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
     // TODO untangle multithreaded scatter/gather from actual work
-    private void dosave(UUID uuid, List<TimeSeries> listTimeseries) throws Exception {
+    private void doSave(UUID uuid, List<TimeSeries> listTimeseries) throws Exception {
 
         int colcount = listTimeseries.size();
         int rowcount = listTimeseries.get(0).getMetadata().getIndex().getPointCount();
