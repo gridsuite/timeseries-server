@@ -49,13 +49,13 @@ public class TimeSeriesDataRepository {
 
     private final ObjectMapper objectMapper;
     private final HikariDataSource datasource;
-    private final TimeSeriesMetadataService timeseriesMetadataService;
+    private final TimeSeriesMetadataService timeSeriesMetadataService;
 
     public TimeSeriesDataRepository(ObjectMapper objectMapper, HikariDataSource datasource,
-            TimeSeriesMetadataService timeseriesMetadataService) {
+            TimeSeriesMetadataService timeSeriesMetadataService) {
         this.objectMapper = objectMapper;
         this.datasource = datasource;
-        this.timeseriesMetadataService = timeseriesMetadataService;
+        this.timeSeriesMetadataService = timeSeriesMetadataService;
     }
 
     // TODO tune these parameters for performance
@@ -299,7 +299,7 @@ public class TimeSeriesDataRepository {
         }
         List<TimeSeries> ret = new ArrayList<>();
         for (Map.Entry<String, List<Object>> entry : data.entrySet()) {
-            TimeSeriesMetadata metadata = timeseriesMetadataService.getMetadata(index, individualMetadatas, entry.getKey());
+            TimeSeriesMetadata metadata = timeSeriesMetadataService.getMetadata(index, individualMetadatas, entry.getKey());
             // TODO remove duplication
             if (TimeSeriesDataType.DOUBLE == metadata.getDataType()) {
                 double[] doubles = entry.getValue().stream().map(Double.class::cast)
