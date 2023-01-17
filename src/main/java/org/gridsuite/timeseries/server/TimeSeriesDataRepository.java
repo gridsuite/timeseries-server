@@ -60,12 +60,19 @@ public class TimeSeriesDataRepository {
 
     // TODO tune these parameters for performance
     // TODO make these parameters in application.yaml
+    // 30000 values => e.g. 100 rows of 300 cols
     @Value("${timeseries.write-batch-size:30000}")
     private int writebatchsize;
+    // 3 batches per thread => e.g. 300 rows of 300 cols
+    // TODO do we need this or is 1 always superior ??
     @Value("${timeseries.write-thread-size:3}")
-    private int writethreadsize; // 3 batches => e.g. 300 rows of 300 cols
-    @Value("${timeseries.read-thread-size:300}")
-    private int readthreadsize; // 300 db rows, TODO take the number of cols into account
+    private int writethreadsize;
+    // 10000 values => e.g. 17 rows of 300 cols
+    @Value("${timeseries.read-thread-size:5000}")
+    private int readbatchsize;
+    // 1 batch per thread values => e.g. 17 rows of 300 cols
+    @Value("${timeseries.read-thread-size:1}") // TODO do we need this or always 1 ??
+    private int readthreadsize;
 
     public void save(UUID uuid, List<TimeSeries> listTimeseries) {
         try {
@@ -90,7 +97,7 @@ public class TimeSeriesDataRepository {
         List<Callable<Void>> callables = new ArrayList<>(Collections.nCopies(threadcount, null));
 
         LOGGER.debug(
-                "insert start {} : {} instants by {} time series, in batch of {} rows ({} doubles for each batch), numbatch={}, numthreads={}, batchinthread={}",
+                "insert start {}, {} instants by {} time series, in batch of {} rows ({} doubles for each batch), numbatch={}, numthreads={}, batchinthread={}",
                 uuid, rowcount, colcount, batchrow, batchrow * colcount, batchcount, threadcount, batchinthread);
         Stopwatch stopwatch = Stopwatch.createStarted();
 
@@ -203,39 +210,52 @@ public class TimeSeriesDataRepository {
     private List<TimeSeries> doFindById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> timeSeriesNames) throws Exception {
         Stopwatch stopwatch = Stopwatch.createStarted();
 
-        LOGGER.debug("select start {}, {} instants by {}/{} time series, in batch of {} rows", uuid, index.getPointCount(),
-                timeSeriesNames != null ? Integer.toString(timeSeriesNames.size()) : "all", individualMetadatas.size(), readthreadsize);
+        int colcount = timeSeriesNames != null ? timeSeriesNames.size() : individualMetadatas.size();
+        int rowcount = index.getPointCount();
 
-        int cnt = index.getPointCount();
-        int threadcount = (cnt + readthreadsize - 1) / readthreadsize;
+        int batchrow = (readbatchsize + colcount - 1) / colcount;
+        int batchcount = (rowcount + batchrow - 1) / batchrow;
+
+        int threadcount = (batchcount + readthreadsize - 1) / readthreadsize;
+        int batchinthread = (batchcount + threadcount - 1) / threadcount;
+
+        LOGGER.debug(
+                "select start {}, {} instants by {}/{} time series, in batch of {} rows ({} doubles for each batch), numbatch={}, numthreads={}, batchinthread={}",
+                uuid, rowcount, timeSeriesNames != null ? Integer.toString(timeSeriesNames.size()) : "all", individualMetadatas.size(),
+                batchrow, batchrow * colcount, batchcount, threadcount, batchinthread);
+
         List<Callable<Map<Object, Object>>> callables = new ArrayList<>(Collections.nCopies(threadcount, null));
         for (int i = 0; i < threadcount; i++) {
             int iCopy = i;
-            int threadrowstart = iCopy * readthreadsize;
-            int threadrowend = (iCopy + 1) * readthreadsize;
             callables.set(i, () -> {
                 Map<Object, Object> threadres = new LinkedHashMap<>();
-                try (var connection = datasource.getConnection();
-                //TODO, add filter on rows (start < time < end)
-                //TODO, add filter on cols by range (alphabetical) ?
-                //TODO, add filter on cols by individual timeseries tag ? to select a tagged subgroup?
-                // if we add subgroup tagging, then we can allow double and strings in the same group,
-                // because we can then do aggregates (min, max, mean, kpercentile) etc in compatible subgroups
-                // this is only useful if subgroups overlap, otherwise you can just create separate groups
-                //     var ps = connection.prepareStatement("select  sim_time,  from simulations_10 where group_id=? and and sim_time >= ? and sim_time < ?;");
-                     var ps = connection.prepareStatement(
-                        TimeSeriesDataQueryCatalog.makeSelect(timeSeriesNames));
-                ) {
-                    ps.setObject(1, uuid);
-                    // TODO instants/durations ?
-                    ps.setInt(2, threadrowstart);
-                    ps.setInt(3, threadrowend);
-                    try (var resultSet = ps.executeQuery();) {
-                        while (resultSet.next()) {
-                            // TODO avoid copying the data by writing directly from each thread to the final
-                            // structure ?
+                try (var connection = datasource.getConnection();) {
+                    for (int l = 0; l < batchinthread; l++) {
+                        int threadrowstart = iCopy * batchinthread * batchrow;
+                        int remainingrows = rowcount % (batchinthread * batchrow);
+                        int threadrowcount = iCopy == threadcount - 1 && remainingrows > 0 ? remainingrows
+                                : batchinthread * batchrow;
+                        int threadrowend = threadrowstart + threadrowcount;
+                        //TODO, add filter on cols by individual timeseries tag ? to select a tagged subgroup?
+                        // if we add subgroup tagging, then we can allow double and strings in the same group,
+                        // because we can then do aggregates (min, max, mean, kpercentile) etc in compatible subgroups
+                        // this is only useful if subgroups overlap, otherwise you can just create separate groups
+                        //     var ps = connection.prepareStatement("select  sim_time,  from simulations_10 where group_id=? and and sim_time >= ? and sim_time < ?;");
+                        try (var ps = connection.prepareStatement(
+                                TimeSeriesDataQueryCatalog.makeSelect(timeSeriesNames));
+                        ) {
+                            ps.setObject(1, uuid);
                             // TODO instants/durations ?
-                            threadres.put(resultSet.getInt(1), objectMapper.readValue(resultSet.getString(2), Map.class));
+                            ps.setInt(2, threadrowstart);
+                            ps.setInt(3, threadrowend);
+                            try (var resultSet = ps.executeQuery();) {
+                                while (resultSet.next()) {
+                                    // TODO avoid copying the data by writing directly from each thread to the final
+                                    // structure ?
+                                    // TODO instants/durations ?
+                                    threadres.put(resultSet.getInt(1), objectMapper.readValue(resultSet.getString(2), Map.class));
+                                }
+                            }
                         }
                     }
                 }
@@ -262,8 +282,7 @@ public class TimeSeriesDataRepository {
             LOGGER.debug("select in http thread");
             res = callables.get(0).call();
         }
-        LOGGER.debug("select done, {} took {}ms ({} rows in {} threads of {} each))", uuid,
-                stopwatch.elapsed(TimeUnit.MILLISECONDS), cnt, threadcount, readthreadsize);
+        LOGGER.debug("select done, {} took {}ms", uuid, stopwatch.elapsed(TimeUnit.MILLISECONDS));
 
         // TODO same as save, avoid the transpose to allow stream from database to
         // clients ?
