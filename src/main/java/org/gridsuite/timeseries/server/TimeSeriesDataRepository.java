@@ -206,19 +206,7 @@ public class TimeSeriesDataRepository {
         LOGGER.debug("select start {}, {} instants by {}/{} time series, in batch of {} rows", uuid, index.getPointCount(),
                 timeSeriesNames != null ? Integer.toString(timeSeriesNames.size()) : "all", individualMetadatas.size(), readthreadsize);
 
-        int cnt = -1;
-        //TODO maintain this as a separate metadata instead of select count(*) when requesting all rows ?
-        //TODO maintain an estimated col count as metadata instead of just guessing when requesting all cols ?
-        try (var connection = datasource.getConnection();
-             var ps = connection.prepareStatement(TimeSeriesDataQueryCatalog.COUNT);) {
-            ps.setObject(1, uuid);
-            try (var resultSet = ps.executeQuery();) {
-                if (resultSet.next()) {
-                    cnt = resultSet.getInt(1);
-                }
-            }
-        }
-        long stopwatchCountElapsed = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+        int cnt = index.getPointCount();
         int threadcount = (cnt + readthreadsize - 1) / readthreadsize;
         List<Callable<Map<Object, Object>>> callables = new ArrayList<>(Collections.nCopies(threadcount, null));
         for (int i = 0; i < threadcount; i++) {
@@ -274,10 +262,8 @@ public class TimeSeriesDataRepository {
             LOGGER.debug("select in http thread");
             res = callables.get(0).call();
         }
-        long stopwatchReadElapsed = stopwatch.elapsed(TimeUnit.MILLISECONDS);
-        long stopwatchQueriesElapsed = stopwatchReadElapsed - stopwatchCountElapsed;
-        LOGGER.debug("select done, {} took {}ms (count {}ms, query {}ms ({} rows in {} threads of {} each))", uuid, stopwatchReadElapsed,
-                stopwatchCountElapsed, stopwatchQueriesElapsed, cnt, threadcount, readthreadsize);
+        LOGGER.debug("select done, {} took {}ms ({} rows in {} threads of {} each))", uuid,
+                stopwatch.elapsed(TimeUnit.MILLISECONDS), cnt, threadcount, readthreadsize);
 
         // TODO same as save, avoid the transpose to allow stream from database to
         // clients ?
