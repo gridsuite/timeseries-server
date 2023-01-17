@@ -117,10 +117,10 @@ public class TimeSeriesIT {
         }
     }
 
-    private Pair<List<TimeSeries>, String> someCols(List<TimeSeries> tsRef, int n) {
-        String col = tsRef.stream().map(TimeSeries::getMetadata).map(TimeSeriesMetadata::getName).limit(n)
+    private Pair<List<TimeSeries>, String> someTimeSeriesNames(List<TimeSeries> tsRef, int n) {
+        String timeSeriesNames = tsRef.stream().map(TimeSeries::getMetadata).map(TimeSeriesMetadata::getName).limit(n)
                 .collect(Collectors.joining(","));
-        return Pair.of(tsRef.stream().limit(n).collect(Collectors.toList()), col);
+        return Pair.of(tsRef.stream().limit(n).collect(Collectors.toList()), timeSeriesNames);
     }
 
     private String testCreateGetTs(List<TimeSeries> tsRef)
@@ -148,13 +148,13 @@ public class TimeSeriesIT {
         // this is for the json_build_object ('a', json_obj->'a', 'd', json_obj->'d , ...) select
         for (int n : List.of(1, 2, tsRef.size() - 1, tsRef.size())
                 .stream().map(x -> Math.max(1, Math.min(50, x))).distinct().collect(Collectors.toList())) {
-            Pair<List<TimeSeries>, String> pairCols = someCols(tsRef, n);
-            String somecols = pairCols.getRight();
-            List<TimeSeries> someTimeSeries = pairCols.getLeft();
-            MvcResult resGetcol = mockMvc.perform(get("/v1/timeseries-group/{uuid}?col={col}", createdUuid, somecols))
+            Pair<List<TimeSeries>, String> pairTimeSeriesWithNames = someTimeSeriesNames(tsRef, n);
+            String someTimeSeriesNames = pairTimeSeriesWithNames.getRight();
+            List<TimeSeries> someTimeSeries = pairTimeSeriesWithNames.getLeft();
+            MvcResult resGetTimeSeriesByNames = mockMvc.perform(get("/v1/timeseries-group/{uuid}?timeSeriesNames={col}", createdUuid, someTimeSeriesNames))
                     .andExpect(status().isOk()).andReturn();
-            String getColJson = resGetcol.getResponse().getContentAsString();
-            assertTimeSeriesEquals(someTimeSeries, getColJson);
+            String getTimeSeriesByNameJson = resGetTimeSeriesByNames.getResponse().getContentAsString();
+            assertTimeSeriesEquals(someTimeSeries, getTimeSeriesByNameJson);
         }
 
         return createdUuid;

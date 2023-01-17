@@ -50,15 +50,15 @@ public class TimeSeriesDataRepository {
     private static final String SELECTALL = "select time, json_obj from timeseries_group_data where group_id=? and time>=? and time <? order by time;";
     private static final String DELETE = "delete from timeseries_group_data where group_id=?";
 
-    private String makeSelectAll(List<String> col) {
-        //TODO validate col sql injection
-        //filter on cols ( select time, json_build_object ('a', json_obj->'a', 'd', json_obj->'d', 'e', json_obj->'e'), ...  instead of the whole json_obj)
-        if (col == null || col.isEmpty()) {
+    private String makeSelectAll(List<String> timeSeriesNames) {
+        //TODO validate timeSeriesName sql injection
+        //filter on time series names ( select time, json_build_object ('a', json_obj->'a', 'd', json_obj->'d', 'e', json_obj->'e'), ...  instead of the whole json_obj)
+        if (timeSeriesNames == null || timeSeriesNames.isEmpty()) {
             return SELECTALL;
         } else {
-            // TODO here if we try with 51 cols we get an exception
+            // TODO here if we try with 51 time series names we get an exception
             // Caused by: org.postgresql.util.PSQLException: ERROR: cannot pass more than 100 arguments to a function
-            return col.stream().map(c -> "'" + c + "', json_obj->'" + c + "'").collect(Collectors.joining(", ",
+            return timeSeriesNames.stream().map(c -> "'" + c + "', json_obj->'" + c + "'").collect(Collectors.joining(", ",
                     "select time, json_build_object (",
                     ") json_obj from timeseries_group_data where group_id=? and time>=? and time <? order by time;"));
         }
@@ -78,7 +78,7 @@ public class TimeSeriesDataRepository {
     // TODO tune these parameters for performance
     // TODO make these parameters in application.yaml
     private static final int WRITE_BATCHSIZE = 30000;
-    private static final int WRITE_THREADSIZE = 3; // 3 batches => e.g. 300 rows of 300cols
+    private static final int WRITE_THREADSIZE = 3; // 3 batches => e.g. 300 rows of 300 cols
     private static final int READ_THREADSIZE = 300; // 300 db rows, TODO take the number of cols into account
 
     public void save(UUID uuid, List<TimeSeries> listTimeseries) {
@@ -205,16 +205,16 @@ public class TimeSeriesDataRepository {
         LOGGER.debug("inserted {} took: {}ms", uuid, (b - a) / 1000000);
     }
 
-    public List<TimeSeries> findById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> col) {
+    public List<TimeSeries> findById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> timeSeriesNames) {
         try {
-            return doFindById(index, individualMetadatas, uuid, tryToCompress, time, col);
+            return doFindById(index, individualMetadatas, uuid, tryToCompress, time, timeSeriesNames);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
     // TODO untangle multithreaded scatter/gather from actual work
-    private List<TimeSeries> doFindById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> col) throws Exception {
+    private List<TimeSeries> doFindById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> timeSeriesNames) throws Exception {
         long a = System.nanoTime();
         int cnt = -1;
         //TODO maintain this as a separate metadata instead of select count(*) when requesting all rows ?
@@ -245,7 +245,7 @@ public class TimeSeriesDataRepository {
                 // because we can then do aggregates (min, max, mean, kpercentile) etc in compatible subgroups
                 // this is only useful if subgroups overlap, otherwise you can just create separate groups
                 //     var ps = connection.prepareStatement("select  sim_time,  from simulations_10 where group_id=? and and sim_time >= ? and sim_time < ?;");
-                     var ps = connection.prepareStatement(makeSelectAll(col));
+                     var ps = connection.prepareStatement(makeSelectAll(timeSeriesNames));
                 ) {
                     ps.setObject(1, uuid);
                     // TODO instants/durations ?

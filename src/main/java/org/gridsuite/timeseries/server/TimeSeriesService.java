@@ -93,13 +93,13 @@ public class TimeSeriesService {
     }
 
     @Transactional
-    public List<TimeSeries> getTimeseriesGroup(UUID uuid, boolean tryToCompress, String time, List<String> col) {
+    public List<TimeSeries> getTimeseriesGroup(UUID uuid, boolean tryToCompress, String time, List<String> timeSeriesNames) {
         TimeSeriesGroupEntity tsGroup = timeseriesGroupRepository.findById(uuid).orElseThrow();
         TimeSeriesIndex index = timeseriesMetadataService.indexFromJson(tsGroup.getIndexType(), tsGroup.getIndex());
         Map<String, Object> individualMetadatas = timeseriesMetadataService
                 .individualMetadatasMapFromJson(tsGroup.getMetadatas());
 
-        List<TimeSeries> tsData = timeseriesDataRepository.findById(index, individualMetadatas, tsGroup.getId(), tryToCompress, time, col);
+        List<TimeSeries> tsData = timeseriesDataRepository.findById(index, individualMetadatas, tsGroup.getId(), tryToCompress, time, timeSeriesNames);
         Map<String, TimeSeries> tsDataByName = tsData.stream().collect(Collectors.toMap(ts -> ts.getMetadata().getName(), Function.identity()));
         List<TimeSeries> tsDataOrdered = individualMetadatas.keySet().stream().flatMap(
             name -> Optional.ofNullable(tsDataByName.get(name)).stream()

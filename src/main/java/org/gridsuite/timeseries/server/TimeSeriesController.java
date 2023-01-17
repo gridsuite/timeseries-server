@@ -72,9 +72,9 @@ public class TimeSeriesController {
         //TODO more kinds of filters
         @RequestParam(required = false) boolean tryToCompress,
         @RequestParam(required = false) String time,
-        @RequestParam(required = false) List<String> col
+        @RequestParam(required = false) List<String> timeSeriesNames
     ) {
-        List<TimeSeries> list = timeSeriesService.getTimeseriesGroup(uuid, tryToCompress, time, col);
+        List<TimeSeries> list = timeSeriesService.getTimeseriesGroup(uuid, tryToCompress, time, timeSeriesNames);
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(TimeSeries.toJson(list));
     }
 
