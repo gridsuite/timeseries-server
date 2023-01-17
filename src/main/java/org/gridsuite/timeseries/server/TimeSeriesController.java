@@ -7,7 +7,6 @@
 package org.gridsuite.timeseries.server;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.MediaType;
@@ -45,18 +44,17 @@ public class TimeSeriesController {
     @GetMapping(value = "/timeseries-group")
     @Operation(summary = "Get all timeseries groups ids")
     @ApiResponses(value = { @ApiResponse(responseCode = "200", description = "The list of timeseries groups ids") })
-    public ResponseEntity<List<Map<String, UUID>>> getTimeseriesGroupsIds() {
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
-                .body(timeSeriesService.getTimeseriesGroupsIds());
+    public List<TimeSeriesGroupInfos> getAllTimeseriesGroupsInfos() {
+        return timeSeriesService.getAllTimeseriesGroupsInfos();
     }
 
     @PostMapping(value = "/timeseries-group")
     @Operation(summary = "create a timeseries group")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The timeseries group was successfully created")})
     //TODO better interface with springboot's objectmapper using the timeseries jackson in powsybl ?
-    public Map<String, Object> createTimeseriesGroup(@RequestBody String timeseries) {
+    public TimeSeriesGroupInfos createTimeseriesGroup(@RequestBody String timeseries) {
         List<TimeSeries> list = TimeSeries.parseJson(timeseries);
-        return Map.of("id", timeSeriesService.createTimeseriesGroup(list));
+        return timeSeriesService.createTimeseriesGroup(list);
     }
 
     @GetMapping(value = "/timeseries-group/{uuid}/metadata")

@@ -37,9 +37,9 @@ public class TimeSeriesService {
     // TODO to remove when metadata are properly modeled
     private final ObjectMapper objectmapper;
 
-    public List<Map<String, UUID>> getTimeseriesGroupsIds() {
+    public List<TimeSeriesGroupInfos> getAllTimeseriesGroupsInfos() {
         return timeseriesGroupRepository.findAll().stream()
-                .map(tsGroup -> Map.of("id", tsGroup.getId()))
+                .map(tsGroup -> TimeSeriesGroupInfos.fromEntity(tsGroup))
                 .collect(Collectors.toList());
     }
 
@@ -70,7 +70,7 @@ public class TimeSeriesService {
     }
 
     @Transactional
-    public UUID createTimeseriesGroup(List<TimeSeries> timeseries) {
+    public TimeSeriesGroupInfos createTimeseriesGroup(List<TimeSeries> timeseries) {
         synchronizeIndex(timeseries);
 
         // TODO proper modeling instead of json
@@ -81,7 +81,7 @@ public class TimeSeriesService {
 
         TimeSeriesGroupEntity tsGroup = timeseriesGroupRepository.save(new TimeSeriesGroupEntity(indexType, indexJson, metadatasJson));
         timeseriesDataRepository.save(tsGroup.getId(), timeseries);
-        return tsGroup.getId();
+        return TimeSeriesGroupInfos.fromEntity(tsGroup);
     }
 
     @Transactional
