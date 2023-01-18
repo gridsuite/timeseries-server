@@ -15,27 +15,24 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
  */
+@NoArgsConstructor // for hibernate
+@AllArgsConstructor
 @Getter
 @Setter
 @Entity
 @Table(name = "timeseries_group")
 public class TimeSeriesGroupEntity {
 
-    // for hibernate
-    public TimeSeriesGroupEntity() {
-        this(null, null, null);
-    }
-
     public TimeSeriesGroupEntity(String indexType, String index, String metadatas) {
-        this.indexType = indexType;
-        this.index = index;
-        this.metadatas = metadatas;
+        this(null, indexType, index, metadatas);
     }
 
     @Id
@@ -45,15 +42,15 @@ public class TimeSeriesGroupEntity {
 
     @Column(name = "index_type")
     // TODO proper modeling of this data instead of json string
-    private final String indexType;
+    private String indexType;
 
     @Column(name = "index", columnDefinition = "CLOB")
     // TODO proper modeling of this data instead of json string
-    private final String index;
+    private String index;
 
     @Column(name = "metadatas", columnDefinition = "CLOB")
     // TODO proper modeling of this data instead of json string
-    private final String metadatas;
+    private String metadatas;
 
     // TODO Maybe add metadata here about this group ?
     // - name ?

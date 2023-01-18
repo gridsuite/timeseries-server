@@ -8,22 +8,17 @@ package org.gridsuite.timeseries.server;
 
 import java.util.UUID;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
+
 //More infos can be added later?
+@AllArgsConstructor
+@Getter
+@Setter
 public class TimeSeriesGroupInfos {
 
     public UUID id;
-
-    public TimeSeriesGroupInfos(UUID id) {
-        this.id = id;
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
 
     public static TimeSeriesGroupInfos fromEntity(TimeSeriesGroupEntity tsg) {
         return new TimeSeriesGroupInfos(tsg.getId());
