@@ -42,8 +42,8 @@ public class TimeSeriesController {
     }
 
     @GetMapping(value = "/timeseries-group")
-    @Operation(summary = "Get all time series groups ids")
-    @ApiResponses(value = { @ApiResponse(responseCode = "200", description = "The list of time series groups ids") })
+    @Operation(summary = "Get all time series groups infos")
+    @ApiResponses(value = { @ApiResponse(responseCode = "200", description = "The list of time series groups infos") })
     public List<TimeSeriesGroupInfos> getAllTimeSeriesGroupsInfos() {
         return timeSeriesService.getAllTimeSeriesGroupsInfos();
     }
@@ -58,13 +58,15 @@ public class TimeSeriesController {
     }
 
     @GetMapping(value = "/timeseries-group/{uuid}/metadata")
-    public String getTimeSeriesGroupMetadata(@PathVariable UUID uuid) {
-        return timeSeriesService.getTimeSeriesGroupMetadataJson(uuid);
+    @Operation(summary = "Get metadata of a time series groups")
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The metadata of a time series group")})
+    public ResponseEntity<String> getTimeSeriesGroupMetadata(@PathVariable UUID uuid) {
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(timeSeriesService.getTimeSeriesGroupMetadataJson(uuid));
     }
 
     @GetMapping(value = "/timeseries-group/{uuid}")
     @Operation(summary = "Get data of a time series groups")
-    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The list of time series groups")})
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The data of a time series group")})
     public ResponseEntity<String> getTimeSeriesGroup(
         @PathVariable UUID uuid,
         //TODO more kinds of filters
@@ -77,7 +79,7 @@ public class TimeSeriesController {
     }
 
     @DeleteMapping(value = "/timeseries-group/{uuid}")
-    @Operation(summary = "Delete a time series groups")
+    @Operation(summary = "Delete a time series group")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The time series group was successfully deleted")})
     public void deleteTimeSeriesGroup(
         @PathVariable UUID uuid
