@@ -57,7 +57,7 @@ public class TimeSeriesGroupEntity {
 
     // TODO Maybe add metadata here about this group ?
     // - name ?
-    // - number of timeseries ?
+    // - number of timeSeries ?
     // - tags (countries, periods, kind ...?)
     // - something else ?
     // different from each timeseries metadatas

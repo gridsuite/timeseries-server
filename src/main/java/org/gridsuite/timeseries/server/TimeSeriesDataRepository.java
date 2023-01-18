@@ -68,25 +68,25 @@ public class TimeSeriesDataRepository {
     @Value("${timeseries.write-thread-size:3}")
     private int writethreadsize;
     // 10000 values => e.g. 17 rows of 300 cols
-    @Value("${timeseries.read-thread-size:5000}")
+    @Value("${timeseries.read-batch-size:5000}")
     private int readbatchsize;
     // 1 batch per thread values => e.g. 17 rows of 300 cols
     @Value("${timeseries.read-thread-size:1}") // TODO do we need this or always 1 ??
     private int readthreadsize;
 
-    public void save(UUID uuid, List<TimeSeries> listTimeseries) {
+    public void save(UUID uuid, List<TimeSeries> listTimeSeries) {
         try {
-            doSave(uuid, listTimeseries);
+            doSave(uuid, listTimeSeries);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
     // TODO untangle multithreaded scatter/gather from actual work
-    private void doSave(UUID uuid, List<TimeSeries> listTimeseries) throws Exception {
+    private void doSave(UUID uuid, List<TimeSeries> listTimeSeries) throws Exception {
 
-        int colcount = listTimeseries.size();
-        int rowcount = listTimeseries.get(0).getMetadata().getIndex().getPointCount();
+        int colcount = listTimeSeries.size();
+        int rowcount = listTimeSeries.get(0).getMetadata().getIndex().getPointCount();
 
         int batchrow = (writebatchsize + colcount - 1) / colcount;
         int batchcount = (rowcount + batchrow - 1) / batchrow;
@@ -104,32 +104,32 @@ public class TimeSeriesDataRepository {
         // TODO here we transpose, which means it's impossible to stream
         // data from the client to the database, the server has to buffer in memory.
         // try to change the API to allow streaming.
-        // TODO avoid copying the data (timeseries toArray())?
+        // TODO avoid copying the data (timeSeries toArray())?
         // TODO, using toArray() doesn't allow to know if the client has missing data
         // at the end of the time series in the json. For example, [1,2,3, NaN] or [1,2,3] both
         // return the same toArray() of {1,2,3, Double.NaN}. For Strings, it's {"foo", "bar", null}.
-        // This can have a big impact for a timeseries with only missing data ( [] vs [null,null, ..., null]
+        // This can have a big impact for a timeSeries with only missing data ( [] vs [null,null, ..., null]
         BiFunction<Integer, Integer, Object> stringOrDoubledataGetter;
-        if (TimeSeriesDataType.DOUBLE == listTimeseries.get(0).getMetadata().getDataType()) {
+        if (TimeSeriesDataType.DOUBLE == listTimeSeries.get(0).getMetadata().getDataType()) {
             List<double[]> datadouble = new ArrayList<>();
-            for (int i = 0; i < listTimeseries.size(); i++) {
-                // TODO timeseries raw type
-                datadouble.add(((DoubleTimeSeries) listTimeseries.get(i)).toArray());
+            for (int i = 0; i < listTimeSeries.size(); i++) {
+                // TODO timeSeries raw type
+                datadouble.add(((DoubleTimeSeries) listTimeSeries.get(i)).toArray());
             }
             stringOrDoubledataGetter = (row, col) -> {
                 double d = datadouble.get(row)[col];
                 //NaN is not valid JSON, serialize as null
                 return Double.isNaN(d) ? null : d;
             };
-        } else if (TimeSeriesDataType.STRING == listTimeseries.get(0).getMetadata().getDataType()) {
+        } else if (TimeSeriesDataType.STRING == listTimeSeries.get(0).getMetadata().getDataType()) {
             List<String[]> datastring = new ArrayList<>();
-            for (int i = 0; i < listTimeseries.size(); i++) {
+            for (int i = 0; i < listTimeSeries.size(); i++) {
 
-                datastring.add(((StringTimeSeries) listTimeseries.get(i)).toArray());
+                datastring.add(((StringTimeSeries) listTimeSeries.get(i)).toArray());
             }
             stringOrDoubledataGetter = (row, col) -> datastring.get(row)[col];
         } else {
-            throw new RuntimeException("Unsupported save of timeseries type" + listTimeseries.get(0).getClass());
+            throw new RuntimeException("Unsupported save of timeSeries type" + listTimeSeries.get(0).getClass());
         }
 
         for (int i = 0; i < threadcount; i++) {
@@ -149,14 +149,14 @@ public class TimeSeriesDataRepository {
                             Map<String, Object> tsdata = new HashMap<>();
                             for (int m = 0; m < colcount; m++) {
                                 int col = m;
-                                String tsName = listTimeseries.get(col).getMetadata().getName();
+                                String tsName = listTimeSeries.get(col).getMetadata().getName();
                                 Object tsData = stringOrDoubledataGetter.apply(col, row);
                                 tsdata.put(tsName, tsData);
                             }
                             ps.setObject(1, uuid);
                             // TODO instants/durations ?
                             // ps.setObject(1,
-                            //   Timestamp.from(listTimeseries.get(0).getMetadata().getIndex().getInstantAt(row)));
+                            //   Timestamp.from(listTimeSeries.get(0).getMetadata().getIndex().getInstantAt(row)));
                             ps.setInt(2, row);
                             ps.setObject(3, objectMapper.writeValueAsString(tsdata), java.sql.Types.OTHER);
                             ps.addBatch();
@@ -168,7 +168,7 @@ public class TimeSeriesDataRepository {
 
                         conn.commit();
                     } catch (Exception e) {
-                        LOGGER.error("Error saving timeseries data", e);
+                        LOGGER.error("Error saving timeSeries data", e);
                         conn.rollback();
                         throw new RuntimeException(e);
                     } finally {
@@ -236,7 +236,7 @@ public class TimeSeriesDataRepository {
                         int threadrowcount = iCopy == threadcount - 1 && remainingrows > 0 ? remainingrows
                                 : batchinthread * batchrow;
                         int threadrowend = threadrowstart + threadrowcount;
-                        //TODO, add filter on cols by individual timeseries tag ? to select a tagged subgroup?
+                        //TODO, add filter on cols by individual timeSeries tag ? to select a tagged subgroup?
                         // if we add subgroup tagging, then we can allow double and strings in the same group,
                         // because we can then do aggregates (min, max, mean, kpercentile) etc in compatible subgroups
                         // this is only useful if subgroups overlap, otherwise you can just create separate groups
@@ -305,7 +305,7 @@ public class TimeSeriesDataRepository {
                 double[] doubles = entry.getValue().stream().map(Double.class::cast)
                         .mapToDouble(d -> d == null ? Double.NaN : d).toArray();
 
-                // TODO should be in the timeseries API ?
+                // TODO should be in the timeSeries API ?
                 DoubleDataChunk ddc = new UncompressedDoubleDataChunk(0, doubles);
                 // TODO get compress mode from the metadata sent by the client
                 if (tryToCompress) {
@@ -313,12 +313,12 @@ public class TimeSeriesDataRepository {
                 }
                 // TODO more types
                 // TODO index from client
-                TimeSeries timeseries = new StoredDoubleTimeSeries(metadata, List.of(ddc));
-                ret.add(timeseries);
+                TimeSeries timeSeries = new StoredDoubleTimeSeries(metadata, List.of(ddc));
+                ret.add(timeSeries);
             } else if (TimeSeriesDataType.STRING == metadata.getDataType()) {
                 String[] strings = entry.getValue().toArray(new String[0]);
 
-                // TODO should be in the timeseries API ?
+                // TODO should be in the timeSeries API ?
                 StringDataChunk ddc = new UncompressedStringDataChunk(0, strings);
                 // TODO get compress mode from the metadata sent by the client
                 if (tryToCompress) {
@@ -326,10 +326,10 @@ public class TimeSeriesDataRepository {
                 }
                 // TODO more types
                 // TODO index from client
-                TimeSeries timeseries = new StringTimeSeries(metadata, List.of(ddc));
-                ret.add(timeseries);
+                TimeSeries timeSeries = new StringTimeSeries(metadata, List.of(ddc));
+                ret.add(timeSeries);
             } else {
-                throw new RuntimeException("Unsupported read of timeseries type" + entry.getValue().get(0).getClass());
+                throw new RuntimeException("Unsupported read of timeSeries type" + entry.getValue().get(0).getClass());
             }
         }
         return ret;

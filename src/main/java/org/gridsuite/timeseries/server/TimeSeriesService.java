@@ -37,7 +37,7 @@ public class TimeSeriesService {
     // TODO to remove when metadata are properly modeled
     private final ObjectMapper objectmapper;
 
-    public List<TimeSeriesGroupInfos> getAllTimeseriesGroupsInfos() {
+    public List<TimeSeriesGroupInfos> getAllTimeSeriesGroupsInfos() {
         return timeSeriesGroupRepository.findAll().stream()
                 .map(tsGroup -> TimeSeriesGroupInfos.fromEntity(tsGroup))
                 .collect(Collectors.toList());
@@ -52,10 +52,10 @@ public class TimeSeriesService {
         this.objectmapper = objectMapper;
     }
 
-    private void synchronizeIndex(List<TimeSeries> timeseries) {
+    private void synchronizeIndex(List<TimeSeries> timeSeries) {
         // For now this just throws when the index is not the same for all
-        TimeSeriesIndex index = timeseries.get(0).getMetadata().getIndex();
-        for (TimeSeries ts : timeseries) {
+        TimeSeriesIndex index = timeSeries.get(0).getMetadata().getIndex();
+        for (TimeSeries ts : timeSeries) {
             try {
                 ts.synchronize(index);
             } catch (UnsupportedOperationException e) {
@@ -63,37 +63,37 @@ public class TimeSeriesService {
                 //TODO use better API than catching UnsupportedOperationException
                 //TODO better separation of service API and controller API: don't speak http here
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Different index for " + timeseries.get(0).getMetadata().getName()
+                        "Different index for " + timeSeries.get(0).getMetadata().getName()
                         + "and " + ts.getMetadata().getName());
             }
         }
     }
 
     @Transactional
-    public TimeSeriesGroupInfos createTimeseriesGroup(List<TimeSeries> timeseries) {
-        synchronizeIndex(timeseries);
+    public TimeSeriesGroupInfos createTimeSeriesGroup(List<TimeSeries> timeSeries) {
+        synchronizeIndex(timeSeries);
 
         // TODO proper modeling instead of json
-        TimeSeriesIndex index = timeseries.get(0).getMetadata().getIndex();
+        TimeSeriesIndex index = timeSeries.get(0).getMetadata().getIndex();
         String indexType = index.getType();
         String indexJson = timeSeriesMetadataService.indexToJson(index);
-        String metadatasJson = timeSeriesMetadataService.individualTimeSeriesMetadatasToJson(timeseries);
+        String metadatasJson = timeSeriesMetadataService.individualTimeSeriesMetadatasToJson(timeSeries);
 
         TimeSeriesGroupEntity tsGroup = timeSeriesGroupRepository.save(new TimeSeriesGroupEntity(indexType, indexJson, metadatasJson));
-        timeSeriesDataRepository.save(tsGroup.getId(), timeseries);
+        timeSeriesDataRepository.save(tsGroup.getId(), timeSeries);
         return TimeSeriesGroupInfos.fromEntity(tsGroup);
     }
 
     @Transactional
-    public String getTimeseriesGroupMetadataJson(UUID uuid) {
-        TimeSeriesGroupEntity timeseriesGroupEntity = timeSeriesGroupRepository.findById(uuid).orElseThrow();
-        TimeSeriesIndex index = timeSeriesMetadataService.indexFromJson(timeseriesGroupEntity.getIndexType(), timeseriesGroupEntity.getIndex());
-        List<TimeSeriesMetadata> metadatas = timeSeriesMetadataService.timeSeriesMetadataListFromJson(index, timeseriesGroupEntity.getMetadatas());
-        return timeSeriesMetadataService.allMetadatasToJson(timeseriesGroupEntity.getId(), index, metadatas);
+    public String getTimeSeriesGroupMetadataJson(UUID uuid) {
+        TimeSeriesGroupEntity timeSeriesGroupEntity = timeSeriesGroupRepository.findById(uuid).orElseThrow();
+        TimeSeriesIndex index = timeSeriesMetadataService.indexFromJson(timeSeriesGroupEntity.getIndexType(), timeSeriesGroupEntity.getIndex());
+        List<TimeSeriesMetadata> metadatas = timeSeriesMetadataService.timeSeriesMetadataListFromJson(index, timeSeriesGroupEntity.getMetadatas());
+        return timeSeriesMetadataService.allMetadatasToJson(timeSeriesGroupEntity.getId(), index, metadatas);
     }
 
     @Transactional
-    public List<TimeSeries> getTimeseriesGroup(UUID uuid, boolean tryToCompress, String time, List<String> timeSeriesNames) {
+    public List<TimeSeries> getTimeSeriesGroup(UUID uuid, boolean tryToCompress, String time, List<String> timeSeriesNames) {
         TimeSeriesGroupEntity tsGroup = timeSeriesGroupRepository.findById(uuid).orElseThrow();
         TimeSeriesIndex index = timeSeriesMetadataService.indexFromJson(tsGroup.getIndexType(), tsGroup.getIndex());
         Map<String, Object> individualMetadatas = timeSeriesMetadataService
@@ -108,7 +108,7 @@ public class TimeSeriesService {
     }
 
     @Transactional
-    public void deleteTimeseriesGroup(UUID uuid) {
+    public void deleteTimeSeriesGroup(UUID uuid) {
         timeSeriesDataRepository.delete(uuid);
         timeSeriesGroupRepository.deleteById(uuid);
     }

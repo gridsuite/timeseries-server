@@ -32,7 +32,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
  */
 @RestController
 @RequestMapping(value = "/v1")
-@Tag(name = "Timeseries server")
+@Tag(name = "Time series server")
 public class TimeSeriesController {
 
     private final TimeSeriesService timeSeriesService;
@@ -42,46 +42,46 @@ public class TimeSeriesController {
     }
 
     @GetMapping(value = "/timeseries-group")
-    @Operation(summary = "Get all timeseries groups ids")
-    @ApiResponses(value = { @ApiResponse(responseCode = "200", description = "The list of timeseries groups ids") })
-    public List<TimeSeriesGroupInfos> getAllTimeseriesGroupsInfos() {
-        return timeSeriesService.getAllTimeseriesGroupsInfos();
+    @Operation(summary = "Get all time series groups ids")
+    @ApiResponses(value = { @ApiResponse(responseCode = "200", description = "The list of time series groups ids") })
+    public List<TimeSeriesGroupInfos> getAllTimeSeriesGroupsInfos() {
+        return timeSeriesService.getAllTimeSeriesGroupsInfos();
     }
 
     @PostMapping(value = "/timeseries-group")
-    @Operation(summary = "create a timeseries group")
-    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The timeseries group was successfully created")})
-    //TODO better interface with springboot's objectmapper using the timeseries jackson in powsybl ?
-    public TimeSeriesGroupInfos createTimeseriesGroup(@RequestBody String timeseries) {
-        List<TimeSeries> list = TimeSeries.parseJson(timeseries);
-        return timeSeriesService.createTimeseriesGroup(list);
+    @Operation(summary = "create a time series group")
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The time series group was successfully created")})
+    //TODO better interface with springboot's objectmapper using the time series jackson in powsybl ?
+    public TimeSeriesGroupInfos createTimeSeriesGroup(@RequestBody String timeSeries) {
+        List<TimeSeries> list = TimeSeries.parseJson(timeSeries);
+        return timeSeriesService.createTimeSeriesGroup(list);
     }
 
     @GetMapping(value = "/timeseries-group/{uuid}/metadata")
-    public String getTimeseriesGroupMetadata(@PathVariable UUID uuid) {
-        return timeSeriesService.getTimeseriesGroupMetadataJson(uuid);
+    public String getTimeSeriesGroupMetadata(@PathVariable UUID uuid) {
+        return timeSeriesService.getTimeSeriesGroupMetadataJson(uuid);
     }
 
     @GetMapping(value = "/timeseries-group/{uuid}")
-    @Operation(summary = "Get data of a timeseries groups")
-    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The list of timeseries groups")})
-    public ResponseEntity<String> getTimeseriesGroup(
+    @Operation(summary = "Get data of a time series groups")
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The list of time series groups")})
+    public ResponseEntity<String> getTimeSeriesGroup(
         @PathVariable UUID uuid,
         //TODO more kinds of filters
         @RequestParam(required = false) boolean tryToCompress,
         @RequestParam(required = false) String time,
         @RequestParam(required = false) List<String> timeSeriesNames
     ) {
-        List<TimeSeries> list = timeSeriesService.getTimeseriesGroup(uuid, tryToCompress, time, timeSeriesNames);
+        List<TimeSeries> list = timeSeriesService.getTimeSeriesGroup(uuid, tryToCompress, time, timeSeriesNames);
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(TimeSeries.toJson(list));
     }
 
     @DeleteMapping(value = "/timeseries-group/{uuid}")
-    @Operation(summary = "Delete a timeseries groups")
-    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The timeseries group was successfully deleted")})
-    public void deleteTimeseriesGroup(
+    @Operation(summary = "Delete a time series groups")
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The time series group was successfully deleted")})
+    public void deleteTimeSeriesGroup(
         @PathVariable UUID uuid
     ) {
-        timeSeriesService.deleteTimeseriesGroup(uuid);
+        timeSeriesService.deleteTimeSeriesGroup(uuid);
     }
 }
