@@ -60,19 +60,21 @@ public class TimeSeriesDataRepository {
 
     // TODO tune these parameters for performance
     // TODO make these parameters in application.yaml
+    // TODO difference between strings and double ?
     // 30000 values => e.g. 100 rows of 300 cols
     @Value("${timeseries.write-batch-size:30000}")
     private int writebatchsize;
-    // 3 batches per thread => e.g. 300 rows of 300 cols
+    // 3 batches per connection => e.g. 300 rows of 300 cols
     // TODO do we need this or is 1 always superior ??
-    @Value("${timeseries.write-thread-size:3}")
-    private int writethreadsize;
+    @Value("${timeseries.write-batch-per-connection:3}")
+    private int writebatchperconnection;
     // 10000 values => e.g. 17 rows of 300 cols
+    // TODO difference between strings and double ?
     @Value("${timeseries.read-batch-size:5000}")
     private int readbatchsize;
-    // 1 batch per thread values => e.g. 17 rows of 300 cols
-    @Value("${timeseries.read-thread-size:1}") // TODO do we need this or always 1 ??
-    private int readthreadsize;
+    // 1 batch per connection values => e.g. 17 rows of 300 cols
+    @Value("${timeseries.read-batch-per-connection:1}") // TODO do we need this or always 1 ??
+    private int readbatchperconnection;
 
     public void save(UUID uuid, List<TimeSeries> listTimeSeries) {
         try {
@@ -91,7 +93,7 @@ public class TimeSeriesDataRepository {
         int batchrow = (writebatchsize + colcount - 1) / colcount;
         int batchcount = (rowcount + batchrow - 1) / batchrow;
 
-        int threadcount = (batchcount + writethreadsize - 1) / writethreadsize;
+        int threadcount = (batchcount + writebatchperconnection - 1) / writebatchperconnection;
         int batchinthread = (batchcount + threadcount - 1) / threadcount;
 
         List<Callable<Void>> callables = new ArrayList<>(Collections.nCopies(threadcount, null));
@@ -216,7 +218,7 @@ public class TimeSeriesDataRepository {
         int batchrow = (readbatchsize + colcount - 1) / colcount;
         int batchcount = (rowcount + batchrow - 1) / batchrow;
 
-        int threadcount = (batchcount + readthreadsize - 1) / readthreadsize;
+        int threadcount = (batchcount + readbatchperconnection - 1) / readbatchperconnection;
         int batchinthread = (batchcount + threadcount - 1) / threadcount;
 
         LOGGER.debug(
