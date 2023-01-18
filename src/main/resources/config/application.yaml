@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: timeseries-server
+
+powsybl-ws:
+  database:
+    name: timeseries
+    queryBegin: '&'
+    customQuery: ${powsybl-ws.database.customQueryBegin}reWriteBatchedInserts=true
+
+logging.level.org.gridsuite.timeseries.server: DEBUG
