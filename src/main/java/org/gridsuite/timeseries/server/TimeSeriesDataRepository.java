@@ -112,7 +112,8 @@ public class TimeSeriesDataRepository {
         // return the same toArray() of {1,2,3, Double.NaN}. For Strings, it's {"foo", "bar", null}.
         // This can have a big impact for a timeSeries with only missing data ( [] vs [null,null, ..., null]
         BiFunction<Integer, Integer, Object> stringOrDoubledataGetter;
-        if (TimeSeriesDataType.DOUBLE == listTimeSeries.get(0).getMetadata().getDataType()) {
+        TimeSeriesMetadata metadata = listTimeSeries.get(0).getMetadata();
+        if (TimeSeriesDataType.DOUBLE == metadata.getDataType()) {
             List<double[]> datadouble = new ArrayList<>();
             for (int i = 0; i < listTimeSeries.size(); i++) {
                 // TODO timeSeries raw type
@@ -123,7 +124,7 @@ public class TimeSeriesDataRepository {
                 //NaN is not valid JSON, serialize as null
                 return Double.isNaN(d) ? null : d;
             };
-        } else if (TimeSeriesDataType.STRING == listTimeSeries.get(0).getMetadata().getDataType()) {
+        } else if (TimeSeriesDataType.STRING == metadata.getDataType()) {
             List<String[]> datastring = new ArrayList<>();
             for (int i = 0; i < listTimeSeries.size(); i++) {
 
@@ -131,7 +132,7 @@ public class TimeSeriesDataRepository {
             }
             stringOrDoubledataGetter = (row, col) -> datastring.get(row)[col];
         } else {
-            throw new RuntimeException("Unsupported save of timeSeries type" + listTimeSeries.get(0).getClass());
+            throw new RuntimeException("Unsupported save of timeSeries type " + metadata.getDataType());
         }
 
         for (int i = 0; i < threadcount; i++) {
@@ -331,7 +332,7 @@ public class TimeSeriesDataRepository {
                 TimeSeries timeSeries = new StringTimeSeries(metadata, List.of(ddc));
                 ret.add(timeSeries);
             } else {
-                throw new RuntimeException("Unsupported read of timeSeries type" + entry.getValue().get(0).getClass());
+                throw new RuntimeException("Unsupported read of timeSeries type " + metadata.getDataType());
             }
         }
         return ret;
