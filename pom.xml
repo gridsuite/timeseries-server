@@ -14,7 +14,7 @@
     <parent>
         <groupId>com.powsybl</groupId>
         <artifactId>powsybl-parent-ws</artifactId>
-        <version>10</version>
+        <version>11</version>
         <relativePath/>
     </parent>
 
@@ -43,7 +43,6 @@
     </developers>
 
     <properties>
-        <java.version>11</java.version>
         <testcontainers-postgresql.version>1.17.6</testcontainers-postgresql.version>
         <gridsuite-dependencies.version>23</gridsuite-dependencies.version>
         <liquibase-hibernate-package>org.gridsuite.timeseries.server</liquibase-hibernate-package>
