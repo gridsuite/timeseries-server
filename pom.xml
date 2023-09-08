@@ -116,11 +116,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
-        <!-- to remove NoProviderFoundException on application startup https://github.com/springdoc/springdoc-openapi/issues/1979 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
 
         <!-- Runtime dependencies -->
         <dependency>
