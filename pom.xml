@@ -44,7 +44,7 @@
 
     <properties>
         <testcontainers-postgresql.version>1.17.6</testcontainers-postgresql.version>
-        <gridsuite-dependencies.version>28</gridsuite-dependencies.version>
+        <powsybl-ws-dependencies.version>2.7.0</powsybl-ws-dependencies.version>
         <liquibase-hibernate-package>org.gridsuite.timeseries.server</liquibase-hibernate-package>
     </properties>
 
@@ -75,9 +75,9 @@
 
             <!-- imports -->
             <dependency>
-                <groupId>org.gridsuite</groupId>
-                <artifactId>gridsuite-dependencies</artifactId>
-                <version>${gridsuite-dependencies.version}</version>
+                <groupId>com.powsybl</groupId>
+                <artifactId>powsybl-ws-dependencies</artifactId>
+                <version>${powsybl-ws-dependencies.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
