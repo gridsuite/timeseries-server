@@ -43,7 +43,7 @@
     </developers>
 
     <properties>
-        <gridsuite-dependencies.version>34</gridsuite-dependencies.version>
+        <gridsuite-dependencies.version>35</gridsuite-dependencies.version>
         <liquibase-hibernate-package>org.gridsuite.timeseries.server</liquibase-hibernate-package>
     </properties>
 
