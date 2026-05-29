@@ -6,24 +6,6 @@
  */
 package org.gridsuite.timeseries.server;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinTask;
-import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Repository;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Stopwatch;
 import com.powsybl.timeseries.DoubleDataChunk;
@@ -38,6 +20,22 @@ import com.powsybl.timeseries.TimeSeriesMetadata;
 import com.powsybl.timeseries.UncompressedDoubleDataChunk;
 import com.powsybl.timeseries.UncompressedStringDataChunk;
 import com.zaxxer.hikari.HikariDataSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Repository;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 
 /**
  * @author Jon Schuhmacher <jon.harper at rte-france.com>
@@ -85,6 +83,7 @@ public class TimeSeriesDataRepository {
     }
 
     // TODO untangle multithreaded scatter/gather from actual work
+    @SuppressWarnings("checkstyle:LambdaBodyLength")
     private void doSave(UUID uuid, List<TimeSeries> listTimeSeries) throws Exception {
 
         int colcount = listTimeSeries.size();
@@ -141,7 +140,7 @@ public class TimeSeriesDataRepository {
                 try (var conn = datasource.getConnection();
                 ) {
                     conn.setAutoCommit(false);
-                    try (var ps = conn.prepareStatement(TimeSeriesDataQueryCatalog.INSERT);) {
+                    try (var ps = conn.prepareStatement(TimeSeriesDataQueryCatalog.INSERT)) {
 
                         int threadrowstart = iCopy * batchinthread * batchrow;
                         int remainingrows = rowcount % (batchinthread * batchrow);
@@ -210,6 +209,7 @@ public class TimeSeriesDataRepository {
     }
 
     // TODO untangle multithreaded scatter/gather from actual work
+    @SuppressWarnings("checkstyle:LambdaBodyLength")
     private List<TimeSeries> doFindById(TimeSeriesIndex index, Map<String, Object> individualMetadatas, UUID uuid, boolean tryToCompress, String time, List<String> timeSeriesNames) throws Exception {
         Stopwatch stopwatch = Stopwatch.createStarted();
 
@@ -232,7 +232,7 @@ public class TimeSeriesDataRepository {
             int iCopy = i;
             callables.set(i, () -> {
                 Map<Object, Object> threadres = new LinkedHashMap<>();
-                try (var connection = datasource.getConnection();) {
+                try (var connection = datasource.getConnection()) {
                     for (int l = 0; l < batchinthread; l++) {
                         int threadrowstart = iCopy * batchinthread * batchrow;
                         int remainingrows = rowcount % (batchinthread * batchrow);
@@ -251,7 +251,7 @@ public class TimeSeriesDataRepository {
                             // TODO instants/durations ?
                             ps.setInt(2, threadrowstart);
                             ps.setInt(3, threadrowend);
-                            try (var resultSet = ps.executeQuery();) {
+                            try (var resultSet = ps.executeQuery()) {
                                 while (resultSet.next()) {
                                     // TODO avoid copying the data by writing directly from each thread to the final
                                     // structure ?
@@ -297,7 +297,7 @@ public class TimeSeriesDataRepository {
                 String tsname = (String) entryPoint.getKey();
                 // TODO more types
                 Object val = entryPoint.getValue();
-                data.computeIfAbsent(tsname, _ignored -> new ArrayList<>()).add(val);
+                data.computeIfAbsent(tsname, ignored -> new ArrayList<>()).add(val);
             }
         }
         List<TimeSeries> ret = new ArrayList<>();

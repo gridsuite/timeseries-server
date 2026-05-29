@@ -6,16 +6,6 @@
  */
 package org.gridsuite.timeseries.server;
 
-import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-import org.springframework.stereotype.Service;
-
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -28,11 +18,20 @@ import com.powsybl.timeseries.TimeSeries;
 import com.powsybl.timeseries.TimeSeriesDataType;
 import com.powsybl.timeseries.TimeSeriesIndex;
 import com.powsybl.timeseries.TimeSeriesMetadata;
+import org.springframework.stereotype.Service;
+import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * This class provides methods to serialize and deserialize metadatas in json.
  * <p>
- * It it used to and from database storage, and to (not from) http clients for metadata only requests (from http clients, we only handle the case of a full upload (metadata + data) so we can directly use the parsing of powsybl)
+ * It it used to and from database storage, and to (not from) http clients for metadata only requests (from http clients, we only handle the case of a full upload (metadata + data) so we can directly
+         use the parsing of powsybl)
  * <p>
  * For the index, because it is the same in all the time series, only one instance is in the json. For other metadatas, because they are different, this class provides methods to:
  * <ul>
