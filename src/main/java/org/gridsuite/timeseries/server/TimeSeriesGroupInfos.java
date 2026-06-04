@@ -6,11 +6,10 @@
  */
 package org.gridsuite.timeseries.server;
 
-import java.util.UUID;
-
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
+import java.util.UUID;
 
 //More infos can be added later?
 @AllArgsConstructor

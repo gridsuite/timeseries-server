@@ -148,7 +148,9 @@ class TimeSeriesIT {
         List<TimeSeries<?, ?>> tsRef1 = List.of(
             TimeSeries.createDouble("first", regularIndex, 2d, 3d, 4d),
             // this one has tags, little more verbose
-            new StoredDoubleTimeSeries(new TimeSeriesMetadata("second", TimeSeriesDataType.DOUBLE, Map.of("unit", "kV"), regularIndex), List.of(new UncompressedDoubleDataChunk(0, new double[] {5d, 6d, 7d})))
+            new StoredDoubleTimeSeries(
+                    new TimeSeriesMetadata("second", TimeSeriesDataType.DOUBLE, Map.of("unit", "kV"), regularIndex),
+                    List.of(new UncompressedDoubleDataChunk(0, new double[] {5d, 6d, 7d})))
         );
 
         String createdUuid1 = testCreateGetTs(tsRef1);
