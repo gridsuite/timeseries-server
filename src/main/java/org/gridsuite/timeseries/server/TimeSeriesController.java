@@ -63,7 +63,7 @@ public class TimeSeriesController {
 
     @GetMapping(value = "/timeseries-group/{uuid}")
     @Operation(summary = "Get data of a time series groups")
-    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The data of a time series group")})
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "The data of a time series group , there is today a limit of 50 time series returned")})
     public ResponseEntity<String> getTimeSeriesGroup(
         @PathVariable UUID uuid,
         //TODO more kinds of filters
@@ -71,6 +71,8 @@ public class TimeSeriesController {
         @RequestParam(required = false) String time,
         @RequestParam(required = false) List<String> timeSeriesNames
     ) {
+        // The limit of 50 time series is a temporary limit, it is not a limit of the API, it is a limit of the database query
+        // see class TimeSeriesDataQueryCatalog
         List<TimeSeries> list = timeSeriesService.getTimeSeriesGroup(uuid, tryToCompress, time, timeSeriesNames);
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(TimeSeries.toJson(list));
     }
